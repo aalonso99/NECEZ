@@ -16,15 +16,16 @@ from torch.utils.tensorboard import SummaryWriter
 from trainer import Trainer
 from buffer import Buffer
 from player import Player
-from models import MuZeroCartNet, MuZeroAtariNet, TestNet
+from models import MuZeroCartNet, MuZeroBipedalNet, MuZeroAtariNet, TestNet
 from memory import GameRecord, Memory
 from reanalyser import Reanalyser
-from envs import testgame_env, testgamed_env, atari_env, cartpole_env
+from envs import testgame_env, testgamed_env, atari_env, cartpole_env, bipedal_env
 
 
-ENV_DICT = {"image": atari_env, "cartpole": cartpole_env, "test": testgame_env}
+ENV_DICT = {"image": atari_env, "cartpole": cartpole_env, "bipedalwalker": bipedal_env, "test": testgame_env}
 NET_DICT = {
     "cartpole": MuZeroCartNet,
+    "bipedalwalker": MuZeroBipedalNet,
     "image": MuZeroAtariNet,
     "test": TestNet,
 }

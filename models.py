@@ -193,7 +193,138 @@ class MuZeroCartNet(nn.Module):
     def represent(self, observation):
         latent = self.repr_net(observation)
         return latent
+        
+        
+        
+class BipedalRepr(nn.Module):
+    def __init__(self, obs_size, latent_size):
+        super().__init__()
+        self.obs_size = obs_size
+        self.fc1 = nn.Linear(obs_size, latent_size)
+        self.fc2 = nn.Linear(latent_size, latent_size)
 
+    def forward(self, state):
+        assert state.dim() == 2
+        assert state.shape[1] == self.obs_size
+        state = state.to(dtype=torch.float32)
+        out = self.fc1(state)
+        out = torch.relu(out)
+        out = self.fc2(out)
+        return out
+        
+        
+class BipedalDynaLSTM(nn.Module):
+    def __init__(self, action_size, latent_size, support_width, lstm_hidden_size):
+        self.latent_size = latent_size
+        self.action_size = action_size
+        self.full_width = (2 * support_width) + 1
+        super().__init__()
+
+        self.lstm = nn.LSTM(input_size=self.latent_size, hidden_size=lstm_hidden_size)
+        self.fc1 = nn.Linear(latent_size + action_size, latent_size)
+        self.fc2 = nn.Linear(latent_size, latent_size)
+        self.fc3 = nn.Linear(lstm_hidden_size, self.full_width)
+
+    def forward(self, latent, action, lstm_hiddens):
+        assert latent.dim() == 2 and action.dim() == 2
+        assert (
+            latent.shape[1] == self.latent_size and action.shape[1] == self.action_size
+        )
+
+        out = torch.cat([action, latent], dim=1)
+        out = self.fc1(out)
+        out = torch.relu(out)
+        new_latent = self.fc2(out)
+        lstm_input = new_latent.unsqueeze(0)
+        val_prefix_logits, new_hiddens = self.lstm(lstm_input, lstm_hiddens)
+        val_prefix_logits = val_prefix_logits.squeeze(0)
+        val_prefix_logits = self.fc3(val_prefix_logits)
+        return new_latent, val_prefix_logits, new_hiddens
+          
+
+class BipedalPred(nn.Module):
+    def __init__(self, action_size, latent_size, support_width):
+        super().__init__()
+        self.action_size = action_size
+        self.latent_size = latent_size
+        self.full_width = (support_width * 2) + 1
+        self.fc1 = nn.Linear(latent_size, latent_size)
+        self.fc2 = nn.Linear(latent_size, action_size + self.full_width)
+
+    def forward(self, latent):
+        assert latent.dim() == 2
+        assert latent.shape[1] == self.latent_size
+        out = self.fc1(latent)
+        out = torch.relu(out)
+        out = self.fc2(out)
+        policy_logits = out[:, : self.action_size]
+        value_logits = out[:, self.action_size :]
+        return policy_logits, value_logits
+        
+
+class MuZeroBipedalNet(nn.Module):
+    def __init__(self, action_size: int, obs_size, config: dict):
+        super().__init__()
+        self.config = config
+        self.action_size = action_size
+        self.obs_size = obs_size
+        self.latent_size = config["latent_size"]
+        self.support_width = config["support_width"]
+
+        self.pred_net = BipedalPred(self.action_size, self.latent_size, self.support_width)
+
+        if self.config["value_prefix"]:
+            self.lstm_hidden_size = self.config["lstm_hidden_size"]
+            self.dyna_net = CartDynaLSTM(
+                self.action_size,
+                self.latent_size,
+                self.support_width,
+                self.lstm_hidden_size,
+            )
+        else:
+            self.dyna_net = BipedalDynaLSTM(
+                self.action_size, self.latent_size, self.support_width
+            )
+        self.repr_net = BipedalRepr(self.obs_size, self.latent_size)
+
+        self.policy_loss = nn.CrossEntropyLoss(reduction="none")
+        self.reward_loss = nn.CrossEntropyLoss(reduction="none")
+        self.value_loss = nn.CrossEntropyLoss(reduction="none")
+        self.cos_sim = nn.CosineSimilarity(dim=1)
+
+    def consistency_loss(self, x1, x2):
+        assert x1.shape == x2.shape
+        return -self.cos_sim(x1, x2)
+
+    def init_optim(self, lr):
+        params = (
+            list(self.pred_net.parameters())
+            + list(self.dyna_net.parameters())
+            + list(self.repr_net.parameters())
+        )
+        self.optimizer = torch.optim.SGD(
+            params,
+            lr=lr,
+            weight_decay=self.config["weight_decay"],
+            momentum=self.config["momentum"],
+        )
+
+    def predict(self, latent):
+        policy, value = self.pred_net(latent)
+        return policy, value
+
+    def dynamics(self, latent, action, hiddens=None):
+        if self.config["value_prefix"]:
+            latent, val_prefix, new_hiddens = self.dyna_net(latent, action, hiddens)
+            return latent, val_prefix, new_hiddens
+        else:
+            latent, reward = self.dyna_net(latent, action)
+            return latent, reward
+
+    def represent(self, observation):
+        latent = self.repr_net(observation)
+        return latent
+        
 
 class MuZeroAtariNet(nn.Module):
     def __init__(self, action_size, obs_size, config):
