@@ -128,11 +128,13 @@ smmap==3.0.4
 stable-baselines @ git+https://github.com/hill-a/stable-baselines.git@6fbc9a99521adacb5cf62e3b1f63b505b33bb8f3
 tables==3.6.1
 tabulate==0.8.7
-tensorboard==1.13.1
+tensorboard==1.15.0
 tensorboardX==2.1
-tensorflow==1.13.2
-tensorflow-gpu==1.13.2
-tensorflow-estimator==1.13.0
+
+tensorflow==1.15.0
+#tensorflow-gpu==1.13.2
+#tensorflow-estimator==1.13.0
+
 termcolor==1.1.0
 testfixtures==6.17.1
 Theano==1.0.5

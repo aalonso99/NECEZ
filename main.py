@@ -79,6 +79,9 @@ def run(config, train_only=False):
     use_cuda = config["try_cuda"] and torch.cuda.is_available()
 
     buffer_gpus = 0.1 if use_cuda else 0
+    
+    ray.init()
+    
     memory = Memory.options(num_cpus=0.1).remote(config, log_dir)
     buffer = Buffer.options(num_cpus=0.1, num_gpus=buffer_gpus).remote(config, memory)
 
