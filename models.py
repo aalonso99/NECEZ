@@ -211,6 +211,30 @@ class BipedalRepr(nn.Module):
         out = torch.relu(out)
         out = self.fc2(out)
         return out
+
+
+class BipedalDyna(nn.Module):
+    def __init__(self, action_size, latent_size, support_width):
+        self.latent_size = latent_size
+        self.action_size = action_size
+        self.full_width = (2 * support_width) + 1
+        super().__init__()
+        self.fc1 = nn.Linear(latent_size + action_size, latent_size)
+        self.fc2 = nn.Linear(latent_size, latent_size + self.full_width)
+
+    def forward(self, latent, action):
+        assert latent.dim() == 2 and action.dim() == 2
+        assert (
+            latent.shape[1] == self.latent_size and action.shape[1] == self.action_size
+        )
+
+        out = torch.cat([action, latent], dim=1)
+        out = self.fc1(out)
+        out = torch.relu(out)
+        out = self.fc2(out)
+        new_latent = out[:, : self.latent_size]
+        reward_logits = out[:, self.latent_size :]
+        return new_latent, reward_logits
         
         
 class BipedalDynaLSTM(nn.Module):
@@ -249,16 +273,21 @@ class BipedalPred(nn.Module):
         self.latent_size = latent_size
         self.full_width = (support_width * 2) + 1
         self.fc1 = nn.Linear(latent_size, latent_size)
-        self.fc2 = nn.Linear(latent_size, action_size + self.full_width)
+        # self.fc2 = nn.Linear(latent_size, action_size + self.full_width)
+        self.fcs_policy = [ nn.Linear(latent_size, action_size) 
+                            for _ in range(4) ] # BipedalWalker has 4 dimensions in the action space
+        self.fc_value = nn.Linear(latent_size, full_width)
 
     def forward(self, latent):
         assert latent.dim() == 2
         assert latent.shape[1] == self.latent_size
-        out = self.fc1(latent)
-        out = torch.relu(out)
-        out = self.fc2(out)
-        policy_logits = out[:, : self.action_size]
-        value_logits = out[:, self.action_size :]
+        x = self.fc1(latent)
+        x = torch.relu(x)
+        # x = self.fc2(x)
+        # policy_logits = x[:, : self.action_size]
+        policy_logits = torch.cat([ fc(x) for fc in self.fcs_policy ])
+        # value_logits = x[:, self.action_size :]
+        value_logits = self.fc_value(x)
         return policy_logits, value_logits
         
 
@@ -275,14 +304,14 @@ class MuZeroBipedalNet(nn.Module):
 
         if self.config["value_prefix"]:
             self.lstm_hidden_size = self.config["lstm_hidden_size"]
-            self.dyna_net = CartDynaLSTM(
+            self.dyna_net = BipedalDynaLSTM(
                 self.action_size,
                 self.latent_size,
                 self.support_width,
                 self.lstm_hidden_size,
             )
         else:
-            self.dyna_net = BipedalDynaLSTM(
+            self.dyna_net = BipedalDyna(
                 self.action_size, self.latent_size, self.support_width
             )
         self.repr_net = BipedalRepr(self.obs_size, self.latent_size)

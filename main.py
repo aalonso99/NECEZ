@@ -35,12 +35,15 @@ def run(config, train_only=False):
     env = ENV_DICT[config["obs_type"]].make_env(config)
     config["full_image_size"] = env.full_image_size
 
-    action_size = env.action_space.n
-    config["action_size"] = action_size
+    if config["obs_type"] == "bipedalwalker":
+        action_size = config["action_size"]
+    else:
+        action_size = env.action_space.n
+        config["action_size"] = action_size
 
     obs_size = config["obs_size"]
     print(obs_size)
-    if config["obs_type"] in ["cartpole", "test"]:
+    if config["obs_type"] in ["cartpole", "test", "bipedalwalker"]:
         obs_size = obs_size[0]
 
     print(f"Observation size: {obs_size}")

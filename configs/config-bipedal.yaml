@@ -3,6 +3,8 @@ env_name: "BipedalWalker-v3"
 obs_type: "bipedalwalker"
 seed: 0
 obs_size: [24]
+action_size: 4
+action_dim: 4
 
 # Setup params  
 log_dir: "runs"
@@ -14,27 +16,28 @@ get_batch_profiling: False
 render: False
 print_simple: True
 max_games: 500 # Total number of games before training is ended
-max_total_frames: 50000
+max_total_frames: 120000
 max_frames: 3000 # Maximum frames for a single game before it is cut short
+n_simulations: 50
 try_cuda: True # Whether to use cuda if available (makes training slower on cartpole)
 
 
 # Model params
 latent_size: 64
 support_width: 25
-n_simulations: 50
 
 # Training params
-learning_rate: 0.02
-learning_rate_decay: 0.9
+initial_learning_rate: 0.2
+final_learning_rate: 0.02
+tr_steps_before_lr_decay: 100_000
 weight_decay: 0.0001
 grad_clip: 1 # 0 interpreted as no clipping
 val_weight: 0.25
 policy_weight: 1.0
-batch_size: 30
+batch_size: 256
 
 # Search params
-root_dirichlet_alpha: 0.25
+root_dirichlet_alpha: 0.3
 explore_frac: 0.25
 discount: 0.997
 n_batches: 100
@@ -44,13 +47,14 @@ buffer_size: 200
 
 # Priority replay params
 priority_replay: True
-priority_alpha: 1
-priority_beta: 1
+priority_alpha: 0.6
+initial_priority_beta: 0.4
+final_priority_beta: 1.0
 
 # Temperature schedule
-temp1: 1000 # Steps after which temperature is dropped to 0.5
-temp2: 2000 # Steps after which temperature is dropped to 0.25
-temp3: 3000 # Steps after which temperature is dropped to 0
+temp1: 10000 # Steps after which temperature is dropped to 0.5
+temp2: 20000 # Steps after which temperature is dropped to 0.25
+temp3: 100000 # Steps after which temperature is dropped to 0
 
 # Reanalyse
 reanalyse: True
@@ -61,14 +65,16 @@ momentum: 0.9
 ## EfficientZero Additions
 # Value prefix
 value_prefix: True
-lstm_hidden_size: 16
+lstm_hidden_size: 64
+val_prefix_size: 32
+reward_channels: 16
 
 # Off policy correction
 off_policy_correction: True
 tau: 0.3
 reward_steps: 1000
-total_training_steps: 100_000
+total_training_steps: 120_000
 
 # Consistency loss
 consistency_loss: True
-consistency_weight: 0.5
+consistency_weight: 2.0
