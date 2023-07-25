@@ -1,11 +1,13 @@
 __pycache__
-venv
+venv/
+ez_hoagy/
 .git
 .vscode
-runs
+runs/
 comps/
 buffers
 testcomp
 testcomp1
 gym-chess/
 colab_comps
+src/aprl

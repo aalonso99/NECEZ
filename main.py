@@ -47,7 +47,7 @@ def run(config, train_only=False):
 
     muzero_class = NET_DICT[config["obs_type"]]
     muzero_network = muzero_class(action_size, obs_size, config)
-    muzero_network.init_optim(config["learning_rate"])
+    muzero_network.init_optim(config["initial_learning_rate"])
 
     if config["log_name"] == "last":
         runs = [x for x in os.listdir(config["log_dir"]) if config["env_name"] in x]
@@ -77,6 +77,10 @@ def run(config, train_only=False):
     workers = []
 
     use_cuda = config["try_cuda"] and torch.cuda.is_available()
+    if use_cuda:
+    	print("Using CUDA")
+    else:
+    	print("Not using CUDA")
 
     buffer_gpus = 0.1 if use_cuda else 0
     

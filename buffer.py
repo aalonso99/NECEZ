@@ -22,6 +22,9 @@ class Buffer:
 
         self.size = config["buffer_size"]  # How many game records to store
         self.priority_alpha = config["priority_alpha"]
+        self.initial_priority_beta = config["initial_priority_beta"]
+        self.final_priority_beta = config["final_priority_beta"]
+        self.max_total_frames = self.config["max_total_frames"]
         self.tau = config["tau"]
 
         # List of start points of each game if the whole buffer were concatenated
@@ -138,7 +141,11 @@ class Buffer:
 
             # Add tuple to batch
             if self.prioritized_replay:
-                weight = 1 / self.priorities[val]
+                total_frames = ray.get(self.memory.get_total_frames.remote())
+                self.priority_beta = self.initial_priority_beta + \
+                                        total_frames/self.max_total_frames * \
+                                        (self.final_priority_beta - self.initial_priority_beta)
+                weight = (1 / self.priorities[val])**self.priority_beta
             else:
                 weight = 1
 
@@ -207,7 +214,7 @@ class Buffer:
 
         self.buffer.append(game)
         self.update_stats()
-        self.save_buffer()
+        # self.save_buffer()
         self.buffer_ndxs.append(game_data["games"] - 1)
 
     def get_ndxs(self, val):

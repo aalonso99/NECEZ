@@ -220,7 +220,7 @@ class Trainer:
                 self.print_timing("done losses")
             # Aggregate the losses to a single measure
             batch_loss = (
-                batch_policy_loss
+                (batch_policy_loss * config["policy_weight"])
                 + batch_reward_loss
                 + (batch_value_loss * config["val_weight"])
                 + (batch_consistency_loss * config["consistency_weight"])

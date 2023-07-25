@@ -10,6 +10,7 @@ weight_decay: 0
 root_dirichlet_alpha: 0.25
 explore_frac: 0.25
 val_weight: 2
+policy_weight: 1.0
 discount: 0.988054
 n_batches: 60
 batch_size: 40

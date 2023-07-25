@@ -28,6 +28,7 @@ class Player:
     def play(self, config, mu_net, device, log_dir, memory, buffer, env):
         minmax = ray.get(memory.get_minmax.remote())
         start_time = time.time()
+        updated_lr = False
 
         while not ray.get(memory.is_finished.remote()):
             data = ray.get(memory.get_data.remote())
@@ -59,11 +60,20 @@ class Player:
                 temperature = 0
             score = 0
 
-            if self.total_games % 10 == 0 and self.total_games > 0:
-                learning_rate = config["learning_rate"] * (
-                    config["learning_rate_decay"] ** self.total_games // 10
-                )
+            # if self.total_games % 10 == 0 and self.total_games > 0:
+            #     learning_rate = config["learning_rate"] * (
+            #         config["learning_rate_decay"] ** self.total_games // 10
+            #     )
+            #     mu_net.init_optim(learning_rate)
+
+            if self.total_frames == 0:
+                learning_rate = config["initial_learning_rate"]
                 mu_net.init_optim(learning_rate)
+            elif self.total_frames >= config["tr_steps_before_lr_decay"] and not updated_lr:
+                learning_rate = config["final_learning_rate"]
+                updated_lr = True
+                mu_net.init_optim(learning_rate)
+
 
             vals = []
             game_start_time = time.time()

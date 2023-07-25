@@ -28,7 +28,8 @@ def run(config):
     muzero_class = net_type_dict[config["env_name"]]
     print(muzero_class)
     muzero_network = muzero_class(action_size, obs_size, config)
-    learning_rate = config["learning_rate"]
+    learning_rate = config["initial_learning_rate"]
+    updated_lr = False
     muzero_network.init_optim(learning_rate)
 
     if config["log_name"] == "None":
@@ -68,9 +69,14 @@ def run(config):
         temperature = 20 / (total_games + 20)
         score = 0
 
-        if total_games % 10 == 0 and total_games > 0:
-            learning_rate = learning_rate * config["learning_rate_decay"]
-            mcts.mu_net.init_optim(learning_rate)
+        # if total_games % 10 == 0 and total_games > 0:
+        #     learning_rate = learning_rate * config["learning_rate_decay"]
+        #     mcts.mu_net.init_optim(learning_rate)
+
+        if self.total_frames >= config["tr_steps_before_lr_decay"] and not updated_lr:
+            learning_rate = config["final_learning_rate"]
+            updated_lr = True
+            mu_net.init_optim(learning_rate)
 
         while not over and frames < config["max_frames"]:
             tree = mcts.search(config["n_simulations"], frame)

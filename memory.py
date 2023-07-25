@@ -293,5 +293,8 @@ class Memory:
     def get_total_games(self):
         return self.total_games
 
+    def get_total_frames(self):
+        return self.total_frames
+
     def get_elapsed_time(self):
         return time.time() - self.session_start_time

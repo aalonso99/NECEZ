@@ -30,6 +30,7 @@ learning_rate_decay: 0.9
 weight_decay: 0.0001
 grad_clip: 1 # 0 interpreted as no clipping
 val_weight: 0.25
+policy_weight: 1.0
 batch_size: 30
 
 # Search params

@@ -14,29 +14,33 @@ get_batch_profiling: False
 render: False
 print_simple: True
 max_games: 500 # Total number of games before training is ended
-max_total_frames: 100000
+max_total_frames: 120000
 max_frames: 3000 # Maximum frames for a single game before it is cut short
-n_simulations: 10
+n_simulations: 50
 try_cuda: True # Whether to use cuda if available (makes training slower on cartpole)
 
 
 # Model params
-latent_size: 20
-channel_list: [16, 32]
+latent_size: 64
+channel_list: [32, 64]
 support_width: 25
 last_n_frames: 4   # image only
-dropout: 0.5      # image only
+dropout: 0.1      # image only
 
 # Training params
-learning_rate: 0.02
-learning_rate_decay: 0.9
+#learning_rate: 0.2
+#learning_rate_decay: 0.9
+initial_learning_rate: 0.2
+final_learning_rate: 0.02
+tr_steps_before_lr_decay: 100_000
 weight_decay: 0.0001
 grad_clip: 1 # 0 interpreted as no clipping
 val_weight: 0.25
-batch_size: 30
+policy_weight: 1.0
+batch_size: 256
 
 # Search params
-root_dirichlet_alpha: 0.25
+root_dirichlet_alpha: 0.3
 explore_frac: 0.25
 discount: 0.997
 n_batches: 100
@@ -46,8 +50,9 @@ buffer_size: 200
 
 # Priority replay params
 priority_replay: True
-priority_alpha: 1
-priority_beta: 1
+priority_alpha: 0.6
+initial_priority_beta: 0.4
+final_priority_beta: 1.0
 
 # Temperature schedule
 temp1: 10000 # Steps after which temperature is dropped to 0.5
@@ -71,8 +76,8 @@ reward_channels: 16
 off_policy_correction: True
 tau: 0.3
 reward_steps: 1000
-total_training_steps: 100_000
+total_training_steps: 120_000
 
 # Consistency loss
 consistency_loss: True
-consistency_weight: 0.5
+consistency_weight: 2.0

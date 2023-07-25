@@ -451,46 +451,46 @@ class MuZeroAtariNet(nn.Module):
 #         return out
 
 
-class AtariDereprNet(nn.Module):
-    def __init__(self, x_pad, y_pad, latent_depth, n_channels):
-        super().__init__()
+# class AtariDereprNet(nn.Module):
+#     def __init__(self, x_pad, y_pad, latent_depth, n_channels):
+#         super().__init__()
 
-        self.pad = (0, x_pad, 0, y_pad)
+#         self.pad = (0, x_pad, 0, y_pad)
 
-        self.conv1 = nn.Conv2d(3, n_channels, stride=2, kernel_size=3, padding=1)
-        self.batch_norm1 = nn.BatchNorm2d(num_features=n_channels, momentum=0.1)
+#         self.conv1 = nn.Conv2d(3, n_channels, stride=2, kernel_size=3, padding=1)
+#         self.batch_norm1 = nn.BatchNorm2d(num_features=n_channels, momentum=0.1)
 
-        self.res1 = ResBlockSmall(n_channels)
+#         self.res1 = ResBlockSmall(n_channels)
 
-        self.conv2 = nn.Conv2d(
-            n_channels, n_channels, stride=2, kernel_size=3, padding=1
-        )
+#         self.conv2 = nn.Conv2d(
+#             n_channels, n_channels, stride=2, kernel_size=3, padding=1
+#         )
 
-        self.res2 = ResBlockSmall(n_channels)
-        self.av_pool1 = nn.AvgPool2d(kernel_size=3, stride=2, padding=1)
-        self.res3 = ResBlockSmall(n_channels)
-        self.av_pool2 = nn.AvgPool2d(kernel_size=3, stride=2, padding=1)
-        self.res4 = ResBlockSmall(n_channels)
+#         self.res2 = ResBlockSmall(n_channels)
+#         self.av_pool1 = nn.AvgPool2d(kernel_size=3, stride=2, padding=1)
+#         self.res3 = ResBlockSmall(n_channels)
+#         self.av_pool2 = nn.AvgPool2d(kernel_size=3, stride=2, padding=1)
+#         self.res4 = ResBlockSmall(n_channels)
 
-        self.conv3 = nn.Conv2d(
-            n_channels, latent_depth, stride=1, kernel_size=3, padding=1
-        )
+#         self.conv3 = nn.Conv2d(
+#             n_channels, latent_depth, stride=1, kernel_size=3, padding=1
+#         )
 
-    def forward(self, x):  # inputs are 96x96??
-        x = x.to(dtype=torch.float32)
-        out = F.pad(x, self.pad, "constant", 0)
-        out = torch.relu(self.batch_norm1(self.conv1(out)))  # outputs 48x48
-        out = self.res1(out)
+#     def forward(self, x):  # inputs are 96x96??
+#         x = x.to(dtype=torch.float32)
+#         out = F.pad(x, self.pad, "constant", 0)
+#         out = torch.relu(self.batch_norm1(self.conv1(out)))  # outputs 48x48
+#         out = self.res1(out)
 
-        out = self.conv2(out)  # outputs 24x24
+#         out = self.conv2(out)  # outputs 24x24
 
-        out = self.res2(out)
-        out = self.av_pool1(out)  # outputs 12x12
-        out = self.res3(out)
-        out = self.av_pool2(out)  # outputs 6x6
-        out = self.res4(out)
-        out = self.conv3(out)
-        return out
+#         out = self.res2(out)
+#         out = self.av_pool1(out)  # outputs 12x12
+#         out = self.res3(out)
+#         out = self.av_pool2(out)  # outputs 6x6
+#         out = self.res4(out)
+#         out = self.conv3(out)
+#         return out
 
 
 class AtariRepresentationNet(nn.Module):
@@ -515,16 +515,52 @@ class AtariRepresentationNet(nn.Module):
         self.batch_norm2 = nn.BatchNorm2d(num_features=channel_list[1], momentum=0.1)
 
         self.res3 = ResBlockSmall(channel_list[1])
-        self.res4 = ResBlockSmall(channel_list[1])
-        self.res5 = ResBlockSmall(channel_list[1])
 
         self.av_pool1 = nn.AvgPool2d(kernel_size=3, stride=2, padding=1)
+        self.batch_norm3 = nn.BatchNorm2d(num_features=channel_list[1], momentum=0.1)
 
-        self.res6 = ResBlockSmall(channel_list[1])
-        self.res7 = ResBlockSmall(channel_list[1])
-        self.res8 = ResBlockSmall(channel_list[1])
+        self.res4 = ResBlockSmall(channel_list[1])
 
         self.av_pool2 = nn.AvgPool2d(kernel_size=3, stride=2, padding=1)
+        self.batch_norm4 = nn.BatchNorm2d(num_features=channel_list[1], momentum=0.1)
+
+        self.res5 = ResBlockSmall(channel_list[1])
+
+        # self.res6 = ResBlockSmall(channel_list[1])
+        # self.res7 = ResBlockSmall(channel_list[1])
+        # self.res8 = ResBlockSmall(channel_list[1])
+
+    # def forward(self, x):  # inputs are 96x96??
+    #     x = x.to(dtype=torch.float32)
+    #     out = F.pad(x, self.pad, "constant", 0)
+
+    #     out = torch.relu(self.batch_norm1(self.conv1(out)))  # outputs 48x48
+    #     assert out.shape[-2:] == torch.Size([48, 48])
+
+    #     out = self.res1(out)
+    #     out = self.res2(out)
+
+    #     # out = torch.relu(self.batch_norm2(self.conv2(out)))  # outputs 24x24
+    #     out = torch.relu(self.batch_norm2(out))  # outputs 24x24
+
+    #     assert out.shape[-2:] == torch.Size([24, 24])
+
+    #     out = self.res3(out)
+    #     out = self.res4(out)
+    #     out = self.res5(out)
+
+    #     out = self.av_pool1(out)  # outputs 12x12
+
+    #     assert out.shape[-2:] == torch.Size([12, 12])
+
+    #     out = self.res6(out)
+    #     out = self.res7(out)
+    #     out = self.res8(out)
+
+    #     out = self.av_pool2(out)  # outputs 6x6
+
+    #     assert out.shape[-2:] == torch.Size([6, 6])
+    #     return out
 
     def forward(self, x):  # inputs are 96x96??
         x = x.to(dtype=torch.float32)
@@ -534,27 +570,23 @@ class AtariRepresentationNet(nn.Module):
         assert out.shape[-2:] == torch.Size([48, 48])
 
         out = self.res1(out)
-        out = self.res2(out)
-
+        out = self.res2(out)  
         out = torch.relu(self.batch_norm2(self.conv2(out)))  # outputs 24x24
 
         assert out.shape[-2:] == torch.Size([24, 24])
 
         out = self.res3(out)
-        out = self.res4(out)
-        out = self.res5(out)
-
-        out = self.av_pool1(out)  # outputs 12x12
+        out = torch.relu(self.batch_norm3(self.av_pool1(out)))  # outputs 12x12
 
         assert out.shape[-2:] == torch.Size([12, 12])
 
-        out = self.res6(out)
-        out = self.res7(out)
-        out = self.res8(out)
-
-        out = self.av_pool2(out)  # outputs 6x6
+        out = self.res4(out)
+        out = torch.relu(self.batch_norm4(self.av_pool2(out)))  # outputs 6x6
 
         assert out.shape[-2:] == torch.Size([6, 6])
+
+        out = self.res5(out)
+
         return out
 
 
