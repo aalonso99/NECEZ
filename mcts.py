@@ -52,7 +52,7 @@ def search(
         init_policy, init_val = [x[0] for x in mu_net.predict(init_latent.unsqueeze(0))]
 
         # Getting probabilities from logits and a scalar value from the categorical support
-        init_policy_probs = torch.softmax(init_policy, 0)
+        init_policy_probs = torch.softmax(init_policy, -1)
         init_val = support_to_scalar(torch.softmax(init_val, 0))
 
         init_policy_probs = add_dirichlet(
@@ -250,7 +250,7 @@ class TreeNode:
                 pol_pred=pol_pred,
                 action_size=self.action_size,
                 action_dim=self.action_dim,
-                possible_actions=self.possible_actions
+                possible_actions=self.possible_actions,
                 parent=self,
                 reward=reward,
                 minmax=minmax,
@@ -378,11 +378,19 @@ class MinMax:
 
 
 def add_dirichlet(prior, dirichlet_alpha, explore_frac):
-    noise = torch.tensor(
-        np.random.dirichlet([dirichlet_alpha] * len(prior)), device=prior.device
-    )
-    new_prior = (1 - explore_frac) * prior + explore_frac * noise
-    return new_prior
+	if prior.dim() == 1:
+		noise = torch.tensor(
+		    np.random.dirichlet([dirichlet_alpha] * len(prior)), device=prior.device
+		)
+	elif prior.dim() == 2:
+		noise = torch.tensor(
+		    np.random.dirichlet([dirichlet_alpha] * prior.shape[1], prior.shape[0]), device=prior.device
+		)
+	else:
+		raise Exception("Not valid dimension for add_dirichlet() prior.")
+		
+	new_prior = (1 - explore_frac) * prior + explore_frac * noise
+	return new_prior
 
 
 last_time = datetime.datetime.now()
