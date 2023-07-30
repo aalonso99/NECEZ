@@ -8,6 +8,7 @@ import yaml
 import pickle
 import numpy as np
 import ray
+from itertools import product
 from matplotlib import pyplot as plt
 
 import torch
@@ -69,10 +70,23 @@ def search(
         else:
             init_lstm_hiddens = None
 
+
         # initialize the search tree with a root node
+        if config["obs_type"] == "bipedalwalker":
+            action_dim = config["action_dim"]
+            # Contains the available values for each component of the action
+            dim_action_values = config["dim_action_values"]
+            possible_actions = [ [dim_action_values[action_n_comp] for action_n_comp in action_n]
+                                for action_n in product(range(self.action_size), repeat=self.action_dim) ]
+        else:
+            action_dim = 1
+            possible_actions = range(mu_net.action_size)
+
         root_node = TreeNode(
             latent=init_latent,
             action_size=mu_net.action_size,
+            action_dim=action_dim,
+            possible_actions=possible_actions,
             val_pred=init_val,
             pol_pred=init_policy_probs,
             minmax=minmax,
@@ -98,11 +112,14 @@ def search(
 
                 # if we pick an action that's been picked before we don't need to run the model to explore it
                 if current_node.children[action] is None:
-                    # Convert to a 2D tensor one-hot encoding the action
-                    action_t = nn.functional.one_hot(
-                        torch.tensor([action], device=device),
-                        num_classes=mu_net.action_size,
-                    )
+                    if config["obs_type"] == "bipedalwalker":
+                        action_t = torch.tensor([eval(action)], device=device)
+                    else:
+                        # Convert to a 2D tensor one-hot encoding the action
+                        action_t = nn.functional.one_hot(
+                            torch.tensor([action], device=device),
+                            num_classes=mu_net.action_size,
+                        )
 
                     # apply the dynamics function to get a representation of the state after the action,
                     # and the reward gained
@@ -171,6 +188,8 @@ class TreeNode:
         self,
         latent,
         action_size,
+        action_dim=1,
+        possible_actions=None,
         val_pred=None,
         pol_pred=None,
         parent=None,
@@ -182,7 +201,23 @@ class TreeNode:
     ):
 
         self.action_size = action_size
-        self.children = [None] * action_size
+        self.action_dim = action_dim
+        self.possible_actions = possible_actions
+
+        #self.children = [None] * action_size
+        #self.children = [None] * (action_size ** action_dim)
+        if self.action_dim > 1:
+            # When we have multiple action dimensions, we represent each child
+            # with a list (converted to string) of the index for each action in
+            # each dimension. 
+            # For example: '[1, 3, 3, 1]' (action 1 in the first and fourth dims and 
+            # action 3 in the second and third)
+            self.children = {repr([action_component for action_component in action]) : None 
+                            for action in possible_actions
+                            }
+        else:
+            self.children = [None] * action_size
+
         self.latent = latent
         self.val_pred = val_pred
         self.pol_pred = pol_pred
@@ -214,6 +249,8 @@ class TreeNode:
                 val_pred=val_pred,
                 pol_pred=pol_pred,
                 action_size=self.action_size,
+                action_dim=self.action_dim,
+                possible_actions=self.possible_actions
                 parent=self,
                 reward=reward,
                 minmax=minmax,
@@ -267,14 +304,14 @@ class TreeNode:
         """Gets the score each of the potential actions and picks the one with the highest"""
         total_visit_count = sum([a.num_visits if a else 0 for a in self.children])
 
-        scores = [
-            self.action_score(a, total_visit_count) for a in range(self.action_size)
-        ]
-        maxscore = max(scores)
+        scores = {
+            a:self.action_score(a, total_visit_count) for a in self.possible_actions
+        }
+        maxscore = max(scores.values()) 
 
         # Need to be careful not to always pick the first action as it common that two are scored identically
         action = np.random.choice(
-            [a for a in range(self.action_size) if scores[a] == maxscore]
+            [a for a in self.possible_actions if scores[a] == maxscore]
         )
         return action
 
@@ -286,13 +323,13 @@ class TreeNode:
         these impact the decision only through their impact on where to visit
         """
 
-        visit_counts = [a.num_visits if a else 0 for a in self.children]
+        visit_counts = {action:node.num_visits if node else 0 for action,node in self.children.items()}
 
         # zero temperature means always picking the highest visit count
         if temperature == 0:
             max_vis = max(visit_counts)
             action = np.random.choice(
-                [a for a in range(self.action_size) if visit_counts[a] == max_vis]
+                [a for a in self.possible_actions if visit_counts[a] == max_vis]
             )
 
         # If temperature is non-zero, raise (visit_count + 1) to power (1 / T)
@@ -302,7 +339,7 @@ class TreeNode:
             total_score = sum(scores)
             adjusted_scores = [score / total_score for score in scores]
 
-            action = np.random.choice(self.action_size, p=adjusted_scores)
+            action = np.random.choice(self.possible_actions, p=adjusted_scores)
 
         # Prints a lot of useful information for how the algorithm is making decisions
         if self.config["debug"]:

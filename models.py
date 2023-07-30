@@ -213,52 +213,58 @@ class BipedalRepr(nn.Module):
         return out
 
 
-class BipedalDyna(nn.Module):
-    def __init__(self, action_size, latent_size, support_width):
-        self.latent_size = latent_size
-        self.action_size = action_size
-        self.full_width = (2 * support_width) + 1
-        super().__init__()
-        self.fc1 = nn.Linear(latent_size + action_size, latent_size)
-        self.fc2 = nn.Linear(latent_size, latent_size + self.full_width)
+# class BipedalDyna(nn.Module):
+#     def __init__(self, action_size, latent_size, support_width):
+#         self.latent_size = latent_size
+#         self.action_size = action_size
+#         self.full_width = (2 * support_width) + 1
+#         super().__init__()
+#         self.fc1 = nn.Linear(latent_size + action_size, latent_size)
+#         self.fc2 = nn.Linear(latent_size, latent_size + self.full_width)
 
-    def forward(self, latent, action):
-        assert latent.dim() == 2 and action.dim() == 2
-        assert (
-            latent.shape[1] == self.latent_size and action.shape[1] == self.action_size
-        )
+#     def forward(self, latent, action):
+#         assert latent.dim() == 2 and action.dim() == 2
+#         assert (
+#             latent.shape[1] == self.latent_size and action.shape[1] == self.action_size
+#         )
 
-        out = torch.cat([action, latent], dim=1)
-        out = self.fc1(out)
-        out = torch.relu(out)
-        out = self.fc2(out)
-        new_latent = out[:, : self.latent_size]
-        reward_logits = out[:, self.latent_size :]
-        return new_latent, reward_logits
+#         out = torch.cat([action, latent], dim=1)
+#         out = self.fc1(out)
+#         out = torch.relu(out)
+#         out = self.fc2(out)
+#         new_latent = out[:, : self.latent_size]
+#         reward_logits = out[:, self.latent_size :]
+#         return new_latent, reward_logits
         
         
 class BipedalDynaLSTM(nn.Module):
-    def __init__(self, action_size, latent_size, support_width, lstm_hidden_size):
+    def __init__(self, action_size, action_dim, latent_size, support_width, lstm_hidden_size):
         self.latent_size = latent_size
         self.action_size = action_size
+        self.action_dim = action_dim
         self.full_width = (2 * support_width) + 1
         super().__init__()
 
         self.lstm = nn.LSTM(input_size=self.latent_size, hidden_size=lstm_hidden_size)
-        self.fc1 = nn.Linear(latent_size + action_size, latent_size)
+        self.fc0 = nn.Linear(action_size*action_dim, latent_size) # Transforms action policy logits into latent space
+        self.fc1 = nn.Linear(2*latent_size, latent_size) # Processes action+state in latent space
         self.fc2 = nn.Linear(latent_size, latent_size)
         self.fc3 = nn.Linear(lstm_hidden_size, self.full_width)
 
     def forward(self, latent, action, lstm_hiddens):
-        assert latent.dim() == 2 and action.dim() == 2
+        assert latent.dim() == 2 and action.dim() == 3
         assert (
-            latent.shape[1] == self.latent_size and action.shape[1] == self.action_size
+            latent.shape[1] == self.latent_size 
+            and action.shape[1] == self.action_dim 
+            and action.shape[1] == self.action_shape
         )
 
-        out = torch.cat([action, latent], dim=1)
-        out = self.fc1(out)
-        out = torch.relu(out)
-        new_latent = self.fc2(out)
+        x = self.fc0(action.flatten())
+        x = torch.relu(x)
+        x = torch.cat([x, latent], dim=1)
+        x = self.fc1(x)
+        x = torch.relu(x)
+        new_latent = self.fc2(x)
         lstm_input = new_latent.unsqueeze(0)
         val_prefix_logits, new_hiddens = self.lstm(lstm_input, lstm_hiddens)
         val_prefix_logits = val_prefix_logits.squeeze(0)
@@ -267,9 +273,10 @@ class BipedalDynaLSTM(nn.Module):
           
 
 class BipedalPred(nn.Module):
-    def __init__(self, action_size, latent_size, support_width):
+    def __init__(self, action_size, action_dim, latent_size, support_width):
         super().__init__()
         self.action_size = action_size
+        self.action_dim = action_dim
         self.latent_size = latent_size
         self.full_width = (support_width * 2) + 1
         self.fc1 = nn.Linear(latent_size, latent_size)
@@ -285,27 +292,29 @@ class BipedalPred(nn.Module):
         x = torch.relu(x)
         # x = self.fc2(x)
         # policy_logits = x[:, : self.action_size]
-        policy_logits = torch.cat([ fc(x) for fc in self.fcs_policy ])
+        policy_logits = torch.stack([ fc(x) for fc in self.fcs_policy ], dim=1)
         # value_logits = x[:, self.action_size :]
         value_logits = self.fc_value(x)
         return policy_logits, value_logits
         
 
 class MuZeroBipedalNet(nn.Module):
-    def __init__(self, action_size: int, obs_size, config: dict):
+    def __init__(self, action_size: int, action_dim: int, obs_size, config: dict):
         super().__init__()
         self.config = config
         self.action_size = action_size
+        self.action_dim = action_dim
         self.obs_size = obs_size
         self.latent_size = config["latent_size"]
         self.support_width = config["support_width"]
 
-        self.pred_net = BipedalPred(self.action_size, self.latent_size, self.support_width)
+        self.pred_net = BipedalPred(self.action_size, self.action_dim, self.latent_size, self.support_width)
 
         if self.config["value_prefix"]:
             self.lstm_hidden_size = self.config["lstm_hidden_size"]
             self.dyna_net = BipedalDynaLSTM(
                 self.action_size,
+                self.action_dim,
                 self.latent_size,
                 self.support_width,
                 self.lstm_hidden_size,

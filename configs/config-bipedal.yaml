@@ -5,6 +5,7 @@ seed: 0
 obs_size: [24]
 action_size: 4
 action_dim: 4
+dim_action_values: [-1, -0.25, 0.25, 1]
 
 # Setup params  
 log_dir: "runs"
@@ -18,7 +19,7 @@ print_simple: True
 max_games: 500 # Total number of games before training is ended
 max_total_frames: 120000
 max_frames: 3000 # Maximum frames for a single game before it is cut short
-n_simulations: 50
+n_simulations: 100
 try_cuda: True # Whether to use cuda if available (makes training slower on cartpole)
 
 

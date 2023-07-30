@@ -30,8 +30,8 @@ class Trainer:
         writer=None,
     ):
         """
-        The train function simultaneously trains the prediction, dynamics and representation functions
-        each batch has a series of values, rewards and policies, that must be predicted only
+        The train function simultaneously trains the prediction, dynamics and representation functions.
+        Each batch has a series of values, rewards and policies, that must be predicted only
         from the initial_image, and the actions.
 
         This unrolled training is how the dynamics function
@@ -133,20 +133,25 @@ class Trainer:
 
                 if config["consistency_loss"]:
                     target_latents = mu_net.represent(images[:, i]).detach()
-                self.print_timing("repreSENT")
-                one_hot_actions = nn.functional.one_hot(
-                    actions[:, i],
-                    num_classes=mu_net.action_size,
-                ).to(device=device)
+                self.print_timing("represent")
+
+                if config["obs_type"] == "bipedalwalker":
+                    actions_t = actions[:,i].to(device=device)
+                else:
+                    # Convert to a 2D tensor one-hot encoding the action
+                    actions_t = nn.functional.one_hot(
+                        actions[:, i],
+                        num_classes=mu_net.action_size,
+                    ).to(device=device)
 
                 pred_policy_logits, pred_value_logits = mu_net.predict(latents)
                 if config["value_prefix"]:
                     new_latents, pred_reward_logits, output_hiddens = mu_net.dynamics(
-                        latents, one_hot_actions, output_hiddens
+                        latents, actions_t, output_hiddens
                     )
                 else:
                     new_latents, pred_reward_logits = mu_net.dynamics(
-                        latents, one_hot_actions
+                        latents, actions_t
                     )
                 self.print_timing("forward pass")
 
@@ -250,7 +255,7 @@ class Trainer:
 
             metrics_dict = {
                 "Loss/total": total_loss,
-                "Loss/policy": total_policy_loss,
+                "Loss/policy": total_policy_loss * config["policy_weight"],
                 "Loss/reward": total_reward_loss,
                 "Loss/value": (total_value_loss * config["val_weight"]),
                 "Loss/consistency": (

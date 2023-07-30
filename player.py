@@ -87,6 +87,7 @@ class Player:
                 tree = search(
                     config, mu_net, frame_input, minmax, log_dir, device=device
                 )
+
                 action = tree.pick_game_action(temperature=temperature)
                 if config["debug"]:
                     if tree.children[action]:
@@ -94,6 +95,10 @@ class Player:
 
                 if config["render"]:
                     env.render("human")
+
+                # In BipedalWalker the action is represented in the MCTS as a string
+                if config["obs_type"] == "bipedalwalker":
+                    action = eval(action)
 
                 frame, reward, over, _ = env.step(action)
 

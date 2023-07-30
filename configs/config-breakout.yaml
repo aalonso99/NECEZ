@@ -68,7 +68,7 @@ momentum: 0.9
 ## EfficientZero Additions
 # Value prefix
 value_prefix: True
-lstm_hidden_size: 512
+lstm_hidden_size: 64
 val_prefix_size: 32
 reward_channels: 16
 

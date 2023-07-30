@@ -35,11 +35,8 @@ def run(config, train_only=False):
     env = ENV_DICT[config["obs_type"]].make_env(config)
     config["full_image_size"] = env.full_image_size
 
-    if config["obs_type"] == "bipedalwalker":
-        action_size = config["action_size"]
-    else:
-        action_size = env.action_space.n
-        config["action_size"] = action_size
+    if config["obs_type"] != "bipedalwalker":
+        config["action_size"] = env.action_space.n
 
     obs_size = config["obs_size"]
     print(obs_size)
@@ -49,7 +46,12 @@ def run(config, train_only=False):
     print(f"Observation size: {obs_size}")
 
     muzero_class = NET_DICT[config["obs_type"]]
-    muzero_network = muzero_class(action_size, obs_size, config)
+    
+    if config["obs_type"] == "bipedalwalker":
+        muzero_network = muzero_class(config["action_size"], config["action_dim"], obs_size, config)
+    else:
+        muzero_network = muzero_class(config["action_size"], obs_size, config)
+
     muzero_network.init_optim(config["initial_learning_rate"])
 
     if config["log_name"] == "last":

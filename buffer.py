@@ -103,12 +103,20 @@ class Buffer:
         images_a = np.zeros(
             (batch_size, rollout_depth, *self.image_size), dtype=np.float32
         )
-        actions_a = np.zeros((batch_size, rollout_depth), dtype=np.int64)
+        if config["obs_type"] != "bipedalwalker":
+            actions_a = np.zeros((batch_size, self.config["action_dim"], rollout_depth), dtype=np.int64)
+            target_policies_a = np.zeros(
+                (batch_size, rollout_depth, self.config["action_size"], self.config["action_dim"]), dtype=np.float32
+            )
+        else:
+            actions_a = np.zeros((batch_size, rollout_depth), dtype=np.int64)
+            target_policies_a = np.zeros(
+                (batch_size, rollout_depth, self.config["action_size"]), dtype=np.float32
+            )
+
         target_values_a = np.zeros((batch_size, rollout_depth), dtype=np.float32)
         target_rewards_a = np.zeros((batch_size, rollout_depth), dtype=np.float32)
-        target_policies_a = np.zeros(
-            (batch_size, rollout_depth, self.config["action_size"]), dtype=np.float32
-        )
+        
         weights_a = np.zeros(batch_size, dtype=np.float32)
         depths_a = np.zeros(batch_size, dtype=np.int64)
 
