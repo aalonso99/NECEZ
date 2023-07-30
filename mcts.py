@@ -73,24 +73,26 @@ def search(
 
         # initialize the search tree with a root node
         if config["obs_type"] == "bipedalwalker":
-            action_dim = config["action_dim"]
             # Contains the available values for each component of the action
             dim_action_values = config["dim_action_values"]
-            possible_actions = [ [dim_action_values[action_n_comp] for action_n_comp in action_n]
-                                for action_n in product(range(self.action_size), repeat=self.action_dim) ]
+            possible_actions = mu_net.possible_actions
+            possible_action_indices = mu_net.possible_action_indices
         else:
             action_dim = 1
             possible_actions = range(mu_net.action_size)
+            possible_action_indices = None
 
         root_node = TreeNode(
             latent=init_latent,
-            action_size=mu_net.action_size,
-            action_dim=action_dim,
-            possible_actions=possible_actions,
+            mu_net=mu_net,
+            # action_size=mu_net.action_size,
+            # action_dim=action_dim,
+            # possible_actions=possible_actions,
+            # possible_action_indices=possible_action_indices,
             val_pred=init_val,
             pol_pred=init_policy_probs,
             minmax=minmax,
-            config=config,
+            # config=config,
             num_visits=0,
             lstm_hiddens=init_lstm_hiddens,
         )
@@ -187,47 +189,59 @@ class TreeNode:
     def __init__(
         self,
         latent,
-        action_size,
-        action_dim=1,
-        possible_actions=None,
+        mu_net,
+        # action_size,
+        # action_dim=1,
+        # possible_actions=None,
+        # possible_action_indices=None,
         val_pred=None,
         pol_pred=None,
         parent=None,
         reward=0,
         minmax=None,
-        config=None,
+        # config=None,
         num_visits=1,
         lstm_hiddens=None,
     ):
 
-        self.action_size = action_size
-        self.action_dim = action_dim
-        self.possible_actions = possible_actions
+        self.mu_net = mu_net
+        self.action_size = mu_net.action_size
+        self.action_dim = mu_net.action_dim
+        self.possible_actions = mu_net.possible_actions
 
         #self.children = [None] * action_size
         #self.children = [None] * (action_size ** action_dim)
+        #self.pol_pred = pol_pred
         if self.action_dim > 1:
+            self.possible_actions_str = mu_net.possible_actions_str
+            self.possible_action_indices = mu_net.possible_action_indices
+
             # When we have multiple action dimensions, we represent each child
             # with a list (converted to string) of the index for each action in
             # each dimension. 
             # For example: '[1, 3, 3, 1]' (action 1 in the first and fourth dims and 
             # action 3 in the second and third)
-            self.children = {repr([action_component for action_component in action]) : None 
-                            for action in possible_actions
+            self.children = {action_str : None 
+                             for action_str in self.possible_actions_str
                             }
+            # self.pol_pred = {action_str : [pol_pred[i][action_idx] for i, action_idx in enumerate(action_indices)]
+            #                  for action_str, action_indices in zip(self.possible_actions_str, self.possible_action_indices)
+            #                 } 
+
+            self.pol_pred = pol_pred
         else:
             self.children = [None] * action_size
+            self.pol_pred = pol_pred
 
         self.latent = latent
         self.val_pred = val_pred
-        self.pol_pred = pol_pred
         self.parent = parent
         self.average_val = val_pred
         self.num_visits = num_visits
         self.reward = reward
 
         self.minmax = minmax
-        self.config = config
+        self.config = mu_net.config
         self.lstm_hiddens = lstm_hiddens
 
     def insert(
@@ -248,13 +262,15 @@ class TreeNode:
                 latent=latent,
                 val_pred=val_pred,
                 pol_pred=pol_pred,
-                action_size=self.action_size,
-                action_dim=self.action_dim,
-                possible_actions=self.possible_actions,
+                mu_net=self.mu_net,
+                # action_size=self.action_size,
+                # action_dim=self.action_dim,
+                # possible_actions=self.possible_actions,
+                # possible_action_indices=self.possible_action_indices,
                 parent=self,
                 reward=reward,
                 minmax=minmax,
-                config=self.config,
+                # config=self.config,
                 lstm_hiddens=lstm_hiddens,
             )
 
@@ -272,7 +288,7 @@ class TreeNode:
         dnmtr = self.num_visits + 1
         self.average_val = nmtr / dnmtr
 
-    def action_score(self, action_n, total_visit_count):
+    def action_score(self, action_n, total_visit_count, action_idx=None):
         """
         Scoring function for the different potential actions, following the formula in Appendix B of muzero
         """
@@ -286,7 +302,10 @@ class TreeNode:
         q = self.minmax.normalize(child.average_val) if child else 0
 
         # p here is the prior - the expectation of what the the policy will look like
-        prior = self.pol_pred[action_n]
+        if self.action_dim > 1:
+            prior = math.prod([ self.pol_pred[i][action_idx_comp] for i, action_idx_comp in enumerate(eval(action_n)) ])
+        elif self.action_dim == 1:
+            prior = self.pol_pred[action_n]
 
         # This term increases the prior on those actions which have been taken only a small fraction
         # of the current number of visits to this node
@@ -302,17 +321,31 @@ class TreeNode:
 
     def pick_action(self):
         """Gets the score each of the potential actions and picks the one with the highest"""
-        total_visit_count = sum([a.num_visits if a else 0 for a in self.children])
+        if self.action_dim > 1:
+            total_visit_count = sum([a.num_visits if a else 0 for a in self.children.values()])
+            scores = {
+                a_str:self.action_score(a, total_visit_count, a_idx) 
+                for a, a_idx, a_str in zip(self.possible_actions, self.possible_action_indices, self.possible_actions_str)
+            }
+        elif self.action_dim == 1:
+            total_visit_count = sum([a.num_visits if a else 0 for a in self.children])
+            scores = {
+                a:self.action_score(a, total_visit_count) 
+                for a in self.possible_actions
+            }
 
-        scores = {
-            a:self.action_score(a, total_visit_count) for a in self.possible_actions
-        }
         maxscore = max(scores.values()) 
 
         # Need to be careful not to always pick the first action as it common that two are scored identically
-        action = np.random.choice(
-            [a for a in self.possible_actions if scores[a] == maxscore]
-        )
+        if self.action_dim > 1:
+            action = np.random.choice(
+                [a for a in self.possible_actions_str if scores[a] == maxscore]
+            )
+        elif self.action_dim == 1:
+            action = np.random.choice(
+                [a for a in self.possible_actions if scores[a] == maxscore]
+            )
+        
         return action
 
     def pick_game_action(self, temperature):
@@ -328,18 +361,27 @@ class TreeNode:
         # zero temperature means always picking the highest visit count
         if temperature == 0:
             max_vis = max(visit_counts)
-            action = np.random.choice(
-                [a for a in self.possible_actions if visit_counts[a] == max_vis]
-            )
+            if self.action_dim > 1:
+                action = np.random.choice(
+                    [a for a in self.possible_actions_str if visit_counts[a] == max_vis]
+                )
+            elif self.action_dim == 0:
+                action = np.random.choice(
+                    [a for a in self.possible_actions if visit_counts[a] == max_vis]
+                )
 
         # If temperature is non-zero, raise (visit_count + 1) to power (1 / T)
         # scale these to a probability distribution and use to select action
         else:
-            scores = [(vc + 1) ** (1 / temperature) for vc in visit_counts]
-            total_score = sum(scores)
-            adjusted_scores = [score / total_score for score in scores]
+            # scores = [(vc + 1) ** (1 / temperature) for vc in visit_counts]
+            scores = {action:(vc + 1) ** (1 / temperature) for action, vc in visit_counts.items()}
+            total_score = sum(scores.values())
+            adjusted_scores = [score / total_score for score in scores.values()]
 
-            action = np.random.choice(self.possible_actions, p=adjusted_scores)
+            if self.action_dim > 1:
+                action = np.random.choice(self.possible_actions_str, p=adjusted_scores)
+            elif self.action_dim == 0:
+                action = np.random.choice(self.possible_actions, p=adjusted_scores)
 
         # Prints a lot of useful information for how the algorithm is making decisions
         if self.config["debug"]:

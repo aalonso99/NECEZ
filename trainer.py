@@ -199,6 +199,7 @@ class Trainer:
                 policy_loss = mu_net.policy_loss(
                     pred_policy_logits[screen_t], target_policy_step_i[screen_t]
                 )
+
                 if config["consistency_loss"]:
                     consistency_loss = mu_net.consistency_loss(
                         latents[screen_t], target_latents[screen_t]

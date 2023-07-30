@@ -193,8 +193,7 @@ class MuZeroCartNet(nn.Module):
     def represent(self, observation):
         latent = self.repr_net(observation)
         return latent
-        
-        
+               
         
 class BipedalRepr(nn.Module):
     def __init__(self, obs_size, latent_size):
@@ -308,6 +307,13 @@ class MuZeroBipedalNet(nn.Module):
         self.latent_size = config["latent_size"]
         self.support_width = config["support_width"]
 
+        self.possible_actions = [ [dim_action_values[action_n_comp] for action_n_comp in action_n]
+                                for action_n in product(range(mu_net.action_size), repeat=mu_net.action_dim) ]
+        self.possible_actions_str = [ repr(action) for action in self.possible_actions ]
+        # self.possible_action_indices = [ action_n for action_n 
+        #                                  in product(range(self.action_size), 
+        #                                             repeat=self.action_dim) ]
+
         self.pred_net = BipedalPred(self.action_size, self.action_dim, self.latent_size, self.support_width)
 
         if self.config["value_prefix"]:
@@ -325,7 +331,7 @@ class MuZeroBipedalNet(nn.Module):
             )
         self.repr_net = BipedalRepr(self.obs_size, self.latent_size)
 
-        self.policy_loss = nn.CrossEntropyLoss(reduction="none")
+        self.policy_loss = nn.CrossEntropyLoss(reduction="mean")
         self.reward_loss = nn.CrossEntropyLoss(reduction="none")
         self.value_loss = nn.CrossEntropyLoss(reduction="none")
         self.cos_sim = nn.CosineSimilarity(dim=1)
