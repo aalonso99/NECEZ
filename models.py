@@ -282,8 +282,8 @@ class BipedalPred(nn.Module):
         self.fc1 = nn.Linear(latent_size, latent_size)
         # self.fc2 = nn.Linear(latent_size, action_size + self.full_width)
         self.fcs_policy = [ nn.Linear(latent_size, action_size) 
-                            for _ in range(4) ] # BipedalWalker has 4 dimensions in the action space
-        self.fc_value = nn.Linear(latent_size, full_width)
+                            for _ in range(self.action_dim) ] # BipedalWalker has 4 dimensions in the action space
+        self.fc_value = nn.Linear(latent_size, self.full_width)
 
     def forward(self, latent):
         assert latent.dim() == 2

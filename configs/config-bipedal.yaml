@@ -24,7 +24,7 @@ try_cuda: True # Whether to use cuda if available (makes training slower on cart
 
 
 # Model params
-latent_size: 64
+latent_size: 6
 support_width: 25
 
 # Training params
