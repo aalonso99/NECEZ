@@ -9,6 +9,8 @@ import random
 
 import cv2
 
+from itertools import product
+
 
 def conv3x3(in_channels, out_channels, stride=1):
     return torch.nn.Conv2d(
@@ -203,6 +205,7 @@ class BipedalRepr(nn.Module):
         self.fc2 = nn.Linear(latent_size, latent_size)
 
     def forward(self, state):
+        #print("State:" + str(state))
         assert state.dim() == 2
         assert state.shape[1] == self.obs_size
         state = state.to(dtype=torch.float32)
@@ -245,22 +248,22 @@ class BipedalDynaLSTM(nn.Module):
         super().__init__()
 
         self.lstm = nn.LSTM(input_size=self.latent_size, hidden_size=lstm_hidden_size)
-        self.fc0 = nn.Linear(action_size*action_dim, latent_size) # Transforms action policy logits into latent space
-        self.fc1 = nn.Linear(2*latent_size, latent_size) # Processes action+state in latent space
+        #self.fc0 = nn.Linear(action_dim, latent_size) # Transforms action policy logits into latent space
+        #self.fc1 = nn.Linear(2*latent_size, latent_size) # Processes action+state in latent space
+        self.fc1 = nn.Linear(action_dim+latent_size, latent_size) # Processes action+state in latent space
         self.fc2 = nn.Linear(latent_size, latent_size)
         self.fc3 = nn.Linear(lstm_hidden_size, self.full_width)
 
     def forward(self, latent, action, lstm_hiddens):
-        assert latent.dim() == 2 and action.dim() == 3
-        assert (
-            latent.shape[1] == self.latent_size 
-            and action.shape[1] == self.action_dim 
-            and action.shape[1] == self.action_shape
-        )
+        assert latent.dim() == 2 
+        assert action.dim() == 2
+        assert latent.shape[1] == self.latent_size 
+        assert action.shape[1] == self.action_dim 
 
-        x = self.fc0(action.flatten())
-        x = torch.relu(x)
-        x = torch.cat([x, latent], dim=1)
+        #x = self.fc0(action.flatten())
+        #x = torch.relu(x)
+        #x = torch.cat([x, latent], dim=1)
+        x = torch.cat([action, latent], dim=1)
         x = self.fc1(x)
         x = torch.relu(x)
         new_latent = self.fc2(x)
@@ -307,12 +310,13 @@ class MuZeroBipedalNet(nn.Module):
         self.latent_size = config["latent_size"]
         self.support_width = config["support_width"]
 
+        dim_action_values = config["dim_action_values"]
         self.possible_actions = [ [dim_action_values[action_n_comp] for action_n_comp in action_n]
-                                for action_n in product(range(mu_net.action_size), repeat=mu_net.action_dim) ]
+                                for action_n in product(range(self.action_size), repeat=self.action_dim) ]
         self.possible_actions_str = [ repr(action) for action in self.possible_actions ]
-        # self.possible_action_indices = [ action_n for action_n 
-        #                                  in product(range(self.action_size), 
-        #                                             repeat=self.action_dim) ]
+        self.possible_action_indices = [ action_idx for action_idx 
+                                         in product(range(self.action_size), 
+                                                    repeat=self.action_dim) ]
 
         self.pred_net = BipedalPred(self.action_size, self.action_dim, self.latent_size, self.support_width)
 

@@ -1,4 +1,4 @@
-import gym
+import gymnasium as gym
 import cv2
 
 
@@ -13,7 +13,9 @@ class WrappedEnv(gym.Wrapper):
         return obs
 
     def step(self, action):
-        next_state, reward, done, info = self.env.step(action)
+        result = self.env.step(action)
+        #print(result)
+        next_state, reward, done, _, info = result
         return next_state, reward, done, info
 
 

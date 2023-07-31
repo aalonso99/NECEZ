@@ -48,6 +48,7 @@ googleapis-common-protos==1.52.0
 gpustat==0.6.0
 grpcio==1.34.1
 gym==0.15.4
+gymnasium==0.29.0
 gym-compete @ git+https://github.com/HumanCompatibleAI/multiagent-competition@3a3f9dca1816c2724a6ec4e78ec39b1001e4b6e6
 h5py==3.1.0
 hiredis==1.1.0

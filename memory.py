@@ -41,6 +41,10 @@ class GameRecord:
 
         self.priorities = []
         self.last_analysed = last_analysed
+        
+        if config["obs_type"] == "bipedalwalker":
+            # Contains the inverse function for the list dim_action_values, which has the possible values for the action 
+            self.dim_value_index_map = {v: i for i, v in enumerate(config["dim_action_values"])}
 
     def add_step(self, obs: np.ndarray, action: int, reward: int, root):
         # Root is a TreeNode object at the root of the search tree for the given state
@@ -55,7 +59,19 @@ class GameRecord:
         self.actions.append(action)
         self.rewards.append(float(reward))
 
-        self.search_stats.append([c.num_visits if c else 0 for c in root.children])
+        if self.config["action_dim"] > 1:
+            #self.search_stats.append([c.num_visits if c else 0 for c in root.children.values()])
+            action_selection_info = [ [0 for _ in range(self.config["action_size"])] for _ in range(self.config["action_dim"]) ]
+            for action_str, node in root.children.items():
+            	if node:
+            		a = eval(action_str)
+            		for i, a_comp in enumerate(a):
+            			action_selection_info[i][self.dim_value_index_map[a_comp]] += node.num_visits
+            self.search_stats.append(action_selection_info)
+            #print("Search Stats:" + str(self.search_stats))
+        elif self.config["action_dim"] == 1:
+        	self.search_stats.append([c.num_visits if c else 0 for c in root.children])
+        	
         self.values.append(float(root.average_val))
 
     def get_last_n(self, n=None, pos=-1):
@@ -166,12 +182,20 @@ class GameRecord:
 
                 target_values.append(target_value)
 
-                total_searches = sum(self.search_stats[ndx + i])
+                if self.config["action_dim"] > 1:
+                    total_searches = sum(self.search_stats[ndx + i][0]) # The visit number is counted for every dimension, hence the [0]
 
-                # The target policy is the fraction of searches which went down each action at the root of the tree
-                target_policies.append(
-                    [x / total_searches for x in self.search_stats[ndx + i]]
-                )
+                    # The target policy is the fraction of searches which went down each action at the root of the tree
+                    target_policies.append(
+                        [ [x / total_searches for x in dimension] for dimension in self.search_stats[ndx + i] ]
+                    )
+                elif self.config["action_dim"] == 1:
+                    total_searches = sum(self.search_stats[ndx + i])
+
+                    # The target policy is the fraction of searches which went down each action at the root of the tree
+                    target_policies.append(
+                        [x / total_searches for x in self.search_stats[ndx + i]]
+                    )
 
             # include all observations for consistency loss
             if self.config["obs_type"] == "image":

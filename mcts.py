@@ -11,6 +11,9 @@ import ray
 from itertools import product
 from matplotlib import pyplot as plt
 
+from operator import mul
+from functools import reduce
+
 import torch
 from torch import nn
 
@@ -46,8 +49,12 @@ def search(
     mu_net = mu_net.to(device)
 
     with torch.no_grad():
-
-        frame_t = torch.tensor(current_frame, device=device)
+        #print("Current frame:" + str(current_frame))
+        if config["obs_type"] == "bipedalwalker" and len(current_frame) == 2:
+            frame_t = torch.tensor(current_frame[0], device=device)
+        else:
+        	frame_t = torch.tensor(current_frame, device=device)
+        #print("Frame_t:" + str(frame_t))
         init_latent = mu_net.represent(frame_t.unsqueeze(0))[0]
         init_policy, init_val = [x[0] for x in mu_net.predict(init_latent.unsqueeze(0))]
 
@@ -303,7 +310,7 @@ class TreeNode:
 
         # p here is the prior - the expectation of what the the policy will look like
         if self.action_dim > 1:
-            prior = math.prod([ self.pol_pred[i][action_idx_comp] for i, action_idx_comp in enumerate(eval(action_n)) ])
+            prior = reduce(mul, [ self.pol_pred[i][int(action_idx_comp)] for i, action_idx_comp in enumerate(action_idx) ]) # Faster equivalent to np.prod()
         elif self.action_dim == 1:
             prior = self.pol_pred[action_n]
 
@@ -324,8 +331,8 @@ class TreeNode:
         if self.action_dim > 1:
             total_visit_count = sum([a.num_visits if a else 0 for a in self.children.values()])
             scores = {
-                a_str:self.action_score(a, total_visit_count, a_idx) 
-                for a, a_idx, a_str in zip(self.possible_actions, self.possible_action_indices, self.possible_actions_str)
+                a_str:self.action_score(a_str, total_visit_count, a_idx) 
+                for a_idx, a_str in zip(self.possible_action_indices, self.possible_actions_str)
             }
         elif self.action_dim == 1:
             total_visit_count = sum([a.num_visits if a else 0 for a in self.children])
