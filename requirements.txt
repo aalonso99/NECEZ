@@ -32,11 +32,11 @@ docopt==0.6.2
 execnet==1.7.1
 fasteners==0.16
 filelock==3.0.12
-flake8==3.8.4
-flake8-blind-except==0.2.0
-flake8-builtins==1.5.3
-flake8-debugger==4.0.0
-flake8-isort==4.0.0
+# flake8==3.8.4
+# flake8-blind-except==0.2.0
+# flake8-builtins==1.5.3
+# flake8-debugger==4.0.0
+# flake8-isort==4.0.0
 future==0.18.2
 # gast==0.4.0
 gitdb==4.0.5
@@ -48,14 +48,14 @@ googleapis-common-protos==1.52.0
 gpustat==0.6.0
 grpcio==1.34.1
 gym==0.15.4
-gymnasium==0.29.0
+gymnasium==0.26.1
 gym-compete @ git+https://github.com/HumanCompatibleAI/multiagent-competition@3a3f9dca1816c2724a6ec4e78ec39b1001e4b6e6
 h5py==3.1.0
 hiredis==1.1.0
 idna==2.10
 imageio==2.9.0
 importlab==0.6.1
-importlib-metadata==3.4.0
+# importlib-metadata==3.4.0
 iniconfig==1.1.1
 isort==4.3.21
 jax==0.2.12
