@@ -103,7 +103,7 @@ class Buffer:
         images_a = np.zeros(
             (batch_size, rollout_depth, *self.image_size), dtype=np.float32
         )
-        if config["obs_type"] != "bipedalwalker":
+        if self.config["obs_type"] == "bipedalwalker":
             actions_a = np.zeros((batch_size, self.config["action_dim"], rollout_depth), dtype=np.int64)
             target_policies_a = np.zeros(
                 (batch_size, rollout_depth, self.config["action_size"], self.config["action_dim"]), dtype=np.float32
