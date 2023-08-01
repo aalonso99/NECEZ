@@ -142,6 +142,8 @@ class MuZeroCartNet(nn.Module):
         self.obs_size = obs_size
         self.latent_size = config["latent_size"]
         self.support_width = config["support_width"]
+        
+        self.possible_actions = [ 0, 1 ]
 
         self.pred_net = CartPred(self.action_size, self.latent_size, self.support_width)
 

@@ -51,6 +51,7 @@ def run(config, train_only=False):
         muzero_network = muzero_class(config["action_size"], config["action_dim"], obs_size, config)
     else:
         muzero_network = muzero_class(config["action_size"], obs_size, config)
+        config["action_dim"] = 1
 
     muzero_network.init_optim(config["initial_learning_rate"])
 
@@ -106,7 +107,8 @@ def run(config, train_only=False):
     start_time = time.time()
     scores = []
 
-    device = torch.device("cuda:" + config["cuda_device"] if use_cuda else "cpu")
+	#device = torch.device("cuda:" + config["cuda_device"] if use_cuda else "cpu")
+    device = torch.device("cuda:0" if use_cuda else "cpu")
     print(f"Training on device: {device}")
 
     player = Player.options(num_cpus=0.3).remote(log_dir=log_dir)

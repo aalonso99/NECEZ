@@ -255,7 +255,7 @@ class TreeNode:
 
             self.pol_pred = pol_pred
         else:
-            self.children = [None] * action_size
+            self.children = [None] * self.action_size
             self.pol_pred = pol_pred
 
         self.latent = latent
@@ -386,19 +386,23 @@ class TreeNode:
         these impact the decision only through their impact on where to visit
         """
 
-        visit_counts = {action:node.num_visits if node else 0 for action,node in self.children.items()}
+        if self.action_dim > 1:
+            visit_counts = {action:node.num_visits if node else 0 for action, node in self.children.items()}
+        elif self.action_dim == 1:
+            visit_counts = {action:node.num_visits if node else 0 for action, node in enumerate(self.children)}
 
         # zero temperature means always picking the highest visit count
         if temperature == 0:
-            max_vis = max(visit_counts)
+            max_vis = max(visit_counts.values())
+            scores = {action:1 if vc == max_vis else 0 for action, vc in visit_counts.items()}
+            total_score = sum(scores.values())
+            adjusted_scores = [score / total_score for score in scores.values()]
             if self.action_dim > 1:
-                action = np.random.choice(
-                    [a for a in self.possible_actions_str if visit_counts[a] == max_vis]
-                )
-            elif self.action_dim == 0:
-                action = np.random.choice(
-                    [a for a in self.possible_actions if visit_counts[a] == max_vis]
-                )
+                action = np.random.choice(self.possible_actions_str, p=adjusted_scores)
+            elif self.action_dim == 1:
+                action = np.random.choice(self.possible_actions, p=adjusted_scores)
+            else:
+            	raise("Incorrect number of action dimensions.")
 
         # If temperature is non-zero, raise (visit_count + 1) to power (1 / T)
         # scale these to a probability distribution and use to select action
@@ -410,8 +414,10 @@ class TreeNode:
 
             if self.action_dim > 1:
                 action = np.random.choice(self.possible_actions_str, p=adjusted_scores)
-            elif self.action_dim == 0:
+            elif self.action_dim == 1:
                 action = np.random.choice(self.possible_actions, p=adjusted_scores)
+            else:
+            	raise("Incorrect number of action dimensions.")
 
         # Prints a lot of useful information for how the algorithm is making decisions
         if self.config["debug"]:
