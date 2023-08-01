@@ -84,6 +84,7 @@ def run(config, train_only=False):
     use_cuda = config["try_cuda"] and torch.cuda.is_available()
     if use_cuda:
     	print("Using CUDA")
+    	print(torch.cuda.device_count())
     else:
     	print("Not using CUDA")
 
@@ -105,7 +106,7 @@ def run(config, train_only=False):
     start_time = time.time()
     scores = []
 
-    device = torch.device("cuda" if use_cuda else "cpu")
+    device = torch.device("cuda:0" if use_cuda else "cpu")
     print(f"Training on device: {device}")
 
     player = Player.options(num_cpus=0.3).remote(log_dir=log_dir)

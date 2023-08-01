@@ -138,6 +138,7 @@ class MuZeroCartNet(nn.Module):
         super().__init__()
         self.config = config
         self.action_size = action_size
+        self.action_dim = 1
         self.obs_size = obs_size
         self.latent_size = config["latent_size"]
         self.support_width = config["support_width"]

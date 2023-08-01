@@ -35,7 +35,7 @@ weight_decay: 0.0001
 grad_clip: 1 # 0 interpreted as no clipping
 val_weight: 0.25
 policy_weight: 1.0
-batch_size: 256
+batch_size: 128
 
 # Search params
 root_dirichlet_alpha: 0.3
