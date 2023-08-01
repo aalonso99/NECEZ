@@ -106,7 +106,7 @@ def run(config, train_only=False):
     start_time = time.time()
     scores = []
 
-    device = torch.device("cuda:0" if use_cuda else "cpu")
+    device = torch.device("cuda:" + config["cuda_device"] if use_cuda else "cpu")
     print(f"Training on device: {device}")
 
     player = Player.options(num_cpus=0.3).remote(log_dir=log_dir)
@@ -187,12 +187,9 @@ if __name__ == "__main__":
     else:
         print("Specify game name")
 
-    if len(sys.argv) > 2 and sys.argv[2] == "colab":
-        config["render"] = False
-        config["channel_list"] = [128, 256]
-        config["debug"] = False
-        config["log_dir"] = "/content/gdrive/My Drive/muz"
-        config["batch_size"] = 128  # 256 causes insufficient memory errors
-        config["repr_channels"] = 128
+    if len(sys.argv) > 2 and sys.argv[2] in {'0', '1', '2'}:
+        config["cuda_device"] = sys.argv[2]
+    else:
+    	config["cuda_device"] = '0'
 
     run(config)
