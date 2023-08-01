@@ -45,6 +45,9 @@ def search(
     and that the value and reward are represented categorically rather than
     as a scalar
     """
+
+    print_timing("Init search", self.config)
+
     mu_net.eval()
     mu_net = mu_net.to(device)
 
@@ -104,6 +107,8 @@ def search(
             lstm_hiddens=init_lstm_hiddens,
         )
 
+        print_timing("Start search simulations", self.config)
+
         for i in range(config["n_simulations"]):
             # vital to have with(torch.no_grad() or the size of the computation graph quickly becomes gigantic
             current_node = root_node
@@ -134,6 +139,8 @@ def search(
                     # and the reward gained
                     # then estimate the policy and value at this new state
 
+                    print_timing("Start running model (search)", self.config)
+
                     if config["value_prefix"]:
                         latent, reward, new_hiddens = mu_net.dynamics(
                             latent.unsqueeze(0), action_t, lstm_hiddens
@@ -149,6 +156,8 @@ def search(
                     new_policy, new_val = [
                         x[0] for x in mu_net.predict(latent.unsqueeze(0))
                     ]
+
+                    print_timing("Finish running model (search)", self.config)
 
                     # convert logits to scalars and probaility distributions
                     reward = support_to_scalar(torch.softmax(reward, 0))
@@ -174,6 +183,12 @@ def search(
             # Updates the visit counts and average values of the nodes that have been traversed
             backpropagate(search_list, new_val, minmax, config["discount"])
     return root_node
+
+def print_timing(tag, config, min_time=0.05):
+        if config["train_speed_profiling"]:
+            now = datetime.datetime.now()
+            print(f"{tag:20} {now - self.last_time}")
+            self.last_time = now
 
 
 def backpropagate(search_list, value, minmax, discount):
