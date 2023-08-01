@@ -205,7 +205,7 @@ class BipedalRepr(nn.Module):
         self.fc2 = nn.Linear(latent_size, latent_size)
 
     def forward(self, state):
-        #print("State:" + str(state))
+        #	print("State:" + str(state))
         assert state.dim() == 2
         assert state.shape[1] == self.obs_size
         state = state.to(dtype=torch.float32)
@@ -294,6 +294,8 @@ class BipedalPred(nn.Module):
         x = torch.relu(x)
         # x = self.fc2(x)
         # policy_logits = x[:, : self.action_size]
+        for fc in self.fcs_policy:
+            fc.to(device=x.device)
         policy_logits = torch.stack([ fc(x) for fc in self.fcs_policy ], dim=1)
         # value_logits = x[:, self.action_size :]
         value_logits = self.fc_value(x)

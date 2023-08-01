@@ -46,7 +46,7 @@ def search(
     as a scalar
     """
 
-    print_timing("Init search", self.config)
+    print_timing("Init search", config)
 
     mu_net.eval()
     mu_net = mu_net.to(device)
@@ -107,7 +107,7 @@ def search(
             lstm_hiddens=init_lstm_hiddens,
         )
 
-        print_timing("Start search simulations", self.config)
+        print_timing("Start search simulations", config)
 
         for i in range(config["n_simulations"]):
             # vital to have with(torch.no_grad() or the size of the computation graph quickly becomes gigantic
@@ -139,7 +139,7 @@ def search(
                     # and the reward gained
                     # then estimate the policy and value at this new state
 
-                    print_timing("Start running model (search)", self.config)
+                    print_timing("Start running model (search)", config)
 
                     if config["value_prefix"]:
                         latent, reward, new_hiddens = mu_net.dynamics(
@@ -157,7 +157,7 @@ def search(
                         x[0] for x in mu_net.predict(latent.unsqueeze(0))
                     ]
 
-                    print_timing("Finish running model (search)", self.config)
+                    print_timing("Finish running model (search)", config)
 
                     # convert logits to scalars and probaility distributions
                     reward = support_to_scalar(torch.softmax(reward, 0))
@@ -185,10 +185,13 @@ def search(
     return root_node
 
 def print_timing(tag, config, min_time=0.05):
-        if config["train_speed_profiling"]:
-            now = datetime.datetime.now()
-            print(f"{tag:20} {now - self.last_time}")
-            self.last_time = now
+    if config["train_speed_profiling"]:
+        if not print_timing.last_time:
+            print_timing.last_time = datetime.datetime.now()
+        now = datetime.datetime.now()
+        print(f"{tag:20} {now - print_timing.last_time}")
+        print_timing.last_time = now
+print_timing.last_time = None
 
 
 def backpropagate(search_list, value, minmax, discount):
@@ -343,6 +346,9 @@ class TreeNode:
 
     def pick_action(self):
         """Gets the score each of the potential actions and picks the one with the highest"""
+        
+        print_timing("Start picking action (search)", self.config)
+        
         if self.action_dim > 1:
             total_visit_count = sum([a.num_visits if a else 0 for a in self.children.values()])
             scores = {
@@ -367,6 +373,8 @@ class TreeNode:
             action = np.random.choice(
                 [a for a in self.possible_actions if scores[a] == maxscore]
             )
+            
+        print_timing("Finish picking action (search)", self.config)
         
         return action
 

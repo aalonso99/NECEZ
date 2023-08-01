@@ -8,8 +8,10 @@ def convert_to_int(obs, game_type):
     elif game_type == "cartpole":
         return ((obs * 64) + 128).astype(np.ubyte)
     elif game_type == "bipedalwalker":
-    	#print("Obs:"+str(obs[0]))
-    	return ((obs[0] * 64) + 128).astype(np.ubyte)
+    	if len(obs) == 2:
+    		return ((obs[0] * 64) + 128).astype(np.ubyte)
+    	else:
+    		return ((obs * 64) + 128).astype(np.ubyte)
     elif game_type == "test":
         return obs.astype(np.ubyte)
     else:
