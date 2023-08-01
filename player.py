@@ -91,7 +91,7 @@ class Player:
                 action = tree.pick_game_action(temperature=temperature)
                 if config["debug"]:
                     if tree.children[action]:
-                        print(float(tree.children[action].reward))
+                        print("(Debug) Picked Action Reward:", float(tree.children[action].reward))
 
                 if config["render"]:
                     env.render("human")

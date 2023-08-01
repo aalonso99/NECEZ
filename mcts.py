@@ -392,8 +392,13 @@ class TreeNode:
 
         # Prints a lot of useful information for how the algorithm is making decisions
         if self.config["debug"]:
-            val_preds = [c.val_pred if c else 0 for c in self.children]
-            print(visit_counts, self.val_pred, val_preds)
+            if self.action_dim > 1:
+                val_preds = [c.val_pred if c else 0 for c in self.children.values()]
+            else:
+                val_preds = [c.val_pred if c else 0 for c in self.children]
+            print("(Debug) Visit Counts:", visit_counts)
+            print("(Debug) Node val_pred:", self.val_pred)
+            print("(Debug) Children val_pred:", val_preds)
 
         return action
 
