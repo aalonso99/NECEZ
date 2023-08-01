@@ -105,7 +105,7 @@ def run(config, train_only=False):
     start_time = time.time()
     scores = []
 
-    device = torch.device("cuda:0" if use_cuda else "cpu")
+    device = torch.device("cuda" if use_cuda else "cpu")
     print(f"Training on device: {device}")
 
     player = Player.options(num_cpus=0.3).remote(log_dir=log_dir)
