@@ -20,9 +20,9 @@ try_cuda: False # Whether to use cuda if available (makes training slower on car
 
 
 # Model params
-latent_size: 20
+latent_size: 10
 support_width: 25
-n_simulations: 40
+n_simulations: 25
 
 # Training params
 initial_learning_rate: 0.02
