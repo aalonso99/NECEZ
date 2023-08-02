@@ -22,6 +22,7 @@ from reanalyser import Reanalyser
 from envs import testgame_env, testgamed_env, atari_env, cartpole_env, bipedal_env
 
 
+
 ENV_DICT = {"image": atari_env, "cartpole": cartpole_env, "bipedalwalker": bipedal_env, "test": testgame_env}
 NET_DICT = {
     "cartpole": MuZeroCartNet,
@@ -194,4 +195,12 @@ if __name__ == "__main__":
     else:
     	config["cuda_device"] = '0'
 
-    run(config)
+    train_stats = run(config)
+    
+    # Save scores to files
+    scores = [ str(game_stats["score"]) for game_stats in train_stats ]
+    print(scores)
+    with open(os.path.join(config["log_dir"], config["log_name"], "scores.log"), "w") as outfile:
+        outfile.write("\n".join(scores))
+        
+        
