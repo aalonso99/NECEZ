@@ -5,9 +5,9 @@ import torch
 def convert_to_int(obs, game_type):
     if game_type == "image":
         return (obs * 256).astype(np.ubyte)
-    elif game_type == "cartpole":
-        return ((obs * 64) + 128).astype(np.ubyte)
-    elif game_type == "bipedalwalker":
+    #elif game_type == "cartpole":
+    #    return ((obs * 64) + 128).astype(np.ubyte)
+    elif game_type in {"cartpole","bipedalwalker"}:
     	if len(obs) == 2:
     		return ((obs[0] * 64) + 128).astype(np.ubyte)
     	else:

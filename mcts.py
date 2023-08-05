@@ -53,7 +53,7 @@ def search(
 
     with torch.no_grad():
         #print("Current frame:" + str(current_frame))
-        if config["obs_type"] == "bipedalwalker" and len(current_frame) == 2:
+        if config["obs_type"] in {"cartpole","bipedalwalker"} and len(current_frame) == 2:
             frame_t = torch.tensor(current_frame[0], device=device)
         else:
         	frame_t = torch.tensor(current_frame, device=device)
