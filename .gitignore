@@ -1,6 +1,7 @@
 __pycache__
 venv/
 ez_hoagy/
+ezero/
 .git
 .vscode
 runs/
