@@ -13,7 +13,8 @@ class WrappedEnv(gym.Wrapper):
         return obs
 
     def step(self, action):
-        next_state, reward, done, info = self.env.step(action)
+        next_state, reward, terminated, truncated, info = self.env.step(action)
+        done = terminated or truncated
         return next_state, reward, done, info
 
 
