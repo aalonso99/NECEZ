@@ -9,6 +9,8 @@ import random
 
 import cv2
 
+from dnd_kdtree import DND
+
 from itertools import product
 
 
@@ -166,6 +168,209 @@ class MuZeroCartNet(nn.Module):
         self.value_loss = nn.CrossEntropyLoss(reduction="none")
         self.cos_sim = nn.CosineSimilarity(dim=1)
 
+    def consistency_loss(self, x1, x2):
+        assert x1.shape == x2.shape
+        return -self.cos_sim(x1, x2)
+
+    def init_optim(self, lr):
+        params = (
+            list(self.pred_net.parameters())
+            + list(self.dyna_net.parameters())
+            + list(self.repr_net.parameters())
+        )
+        self.optimizer = torch.optim.SGD(
+            params,
+            lr=lr,
+            weight_decay=self.config["weight_decay"],
+            momentum=self.config["momentum"],
+        )
+
+    def predict(self, latent):
+        policy, value = self.pred_net(latent)
+        return policy, value
+
+    def dynamics(self, latent, action, hiddens=None):
+        if self.config["value_prefix"]:
+            latent, val_prefix, new_hiddens = self.dyna_net(latent, action, hiddens)
+            return latent, val_prefix, new_hiddens
+        else:
+            latent, reward = self.dyna_net(latent, action)
+            return latent, reward
+
+    def represent(self, observation):
+        latent = self.repr_net(observation)
+        return latent
+        
+        
+class CartNECPred(nn.Module):
+    def __init__(self, action_size, latent_size,
+    			 k=50,
+                 max_size = 1000,
+                 kdtree_rebuild = 50,
+                 leaf_size=30,
+                 delta=0.001):
+        super().__init__()
+        self.action_size = action_size
+        self.latent_size = latent_size
+        self.fc1 = nn.Linear(latent_size, latent_size)
+        self.fc_policy = nn.Linear(latent_size, action_size) # Policy head
+        self.fc_value_embedding = nn.Linear(latent_size, latent_size) # First layer of value head
+        self.dnd = DND(latent_size, k, max_size, kdtree_rebuild, leaf_size)
+        self.delta = delta
+        
+    def compute_value(self, latent, neighbors_repr, neighbors_value):
+        dists = torch.squeeze(torch.cdist(torch.unsqueeze(latent,1), neighbors_repr))
+        k = 1.0/(dists+self.delta)
+        w = k/k.sum()
+        
+        #print("Latent: " + str(latent.shape))
+        #print("Dists: " + str(dists.shape))
+        #print("Neighbors Repr: " + str(neighbors_repr.shape))
+        #print("Neighbors Value: " + str(neighbors_value.shape))
+        #print("Weights: " + str(w.shape))
+        #print("Neighbors Weighted Value: " + str((neighbors_value * w).shape))
+        
+        return torch.sum(neighbors_value * w, dim=1)
+
+    def forward(self, latent):
+        assert latent.dim() == 2
+        assert latent.shape[1] == self.latent_size
+        out = self.fc1(latent)
+        out = torch.relu(out)
+        policy_logits = self.fc_policy(out)
+        
+        if not self.dnd.available:
+        
+            return policy_logits, torch.zeros(latent.shape[0], 1)
+        
+        else:
+        
+            # Computation of the value using neural episodic control https://arxiv.org/pdf/1703.01988.pdf
+            out = self.fc_value_embedding(out)
+            _, knn_indices = self.dnd.query_knn(out.detach().numpy())
+            neighbors_repr = []
+            neighbors_value = []
+            
+            #print("Memory Indices: "+str(self.dnd.memory_table.keys()))
+            
+            for neighbor_indices in knn_indices:
+            
+                reprs_row = []
+                values_row = []
+                for i in neighbor_indices:
+                    # Since the kdtree is not rebuilt every time there are changes in the memory_table, it 
+                    # can point us to neighbors that don't exist any more. In that case, we simply ignore
+                    # them (one alternative is to look for it first in the memory_table keys, another is to
+                    # rebuild the kdtree every time an element is removed)
+                    try:
+                        reprs_row.append(self.dnd.memory_table[i][0])
+                    except:
+                        print("Not found index " + str(i))
+                        print("Max index in memory: " + str(max(self.dnd.memory_table.keys())))
+                        print("Min index in memory: " + str(min(self.dnd.memory_table.keys())))
+                        continue
+                    
+                    try:
+                        values_row.append(self.dnd.memory_table[i][1])
+                    except:
+                        reprs_row.pop()
+                        
+                neighbors_repr.append(reprs_row)
+                neighbors_value.append(values_row)
+                
+            #print("Neighbors Repr:")
+            #if len(neighbors_repr)==0:
+            #    print(knn_indices)
+            #else:
+            #    for row in neighbors_repr:
+            #        print(len(row))
+                
+            neighbors_repr = torch.tensor(np.array(neighbors_repr), requires_grad=False)
+            neighbors_value = torch.tensor(np.array(neighbors_value), requires_grad=False)
+
+            value_logits = self.compute_value(out, neighbors_repr, neighbors_value)
+            #print("Value logits: "+str(value_logits))
+        
+        return policy_logits, value_logits
+        
+        
+class MuZeroNECCartNet(nn.Module):
+	# If a weights_path is passed, the weights of a pretrained MuZeroCartNet are 
+	# loaded from that path into the compatible layers of this network
+    def __init__(self, action_size: int, obs_size, config: dict, 
+    			 k=50,
+                 max_size: int = 50000,
+                 kdtree_rebuild: int = 50,
+                 leaf_size: int = 30,
+                 delta: float = 0.001,
+                 weights_path: str = None):
+                 
+        super().__init__()
+        self.config = config
+        self.action_size = action_size
+        self.action_dim = 1
+        self.obs_size = obs_size
+        self.latent_size = config["latent_size"]
+        self.support_width = config["support_width"]
+        
+        self.possible_actions = [ 0, 1 ]
+
+        self.pred_net = CartNECPred(self.action_size, self.latent_size,
+        						    k = k,
+                 				    max_size = max_size,
+                 				    kdtree_rebuild = kdtree_rebuild,
+                 				    leaf_size = leaf_size,
+                 				    delta = delta)
+
+        if self.config["value_prefix"]:
+            self.lstm_hidden_size = self.config["lstm_hidden_size"]
+            self.dyna_net = CartDynaLSTM(
+                self.action_size,
+                self.latent_size,
+                self.support_width,
+                self.lstm_hidden_size,
+            )
+        else:
+            self.dyna_net = CartDyna(
+                self.action_size, self.latent_size, self.support_width
+            )
+        self.repr_net = CartRepr(self.obs_size, self.latent_size)
+        
+        if weights_path != None:
+            # Load pretrained weights (only layers present in this model too)
+            pretrained_state_dict = torch.load(weights_path)
+            pretrained_dict = {k: v for k, v in pretrained_dict.items() if k in self.state_dict()}
+            self.load_state_dict(pretrained_dict)
+            
+            # Freeze pretrained layers
+            freeze_weights(self.dyna_net)
+            freeze_weights(self.repr_net)
+            freeze_weights(self.pred_net)
+            unfreeze_weights(self.pred_net.fc_policy)
+            unfreeze_weights(self.pred_net.fc_value_embedding)
+
+        self.policy_loss = nn.CrossEntropyLoss(reduction="none")
+        self.reward_loss = nn.CrossEntropyLoss(reduction="none")
+        self.value_loss = nn.CrossEntropyLoss(reduction="none")
+        self.cos_sim = nn.CosineSimilarity(dim=1)
+        
+    def freeze_weights(self, model):
+        for param in model.parameters():
+            param.requires_grad = False
+            
+    def unfreeze_weights(self, model):
+        for param in model.parameters():
+            param.requires_grad = True
+            
+    def add_to_dnd(self, latent, value):
+        latent = self.pred_net.fc1(latent)
+        latent = torch.relu(latent)
+        latent = self.pred_net.fc_value_embedding(latent)
+        self.pred_net.dnd.add(latent.detach().numpy(), value.detach().numpy())
+        
+    def save_dnd(self, path):
+        self.pred_net.dnd.save(path)
+        
     def consistency_loss(self, x1, x2):
         assert x1.shape == x2.shape
         return -self.cos_sim(x1, x2)

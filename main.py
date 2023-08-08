@@ -16,7 +16,7 @@ from torch.utils.tensorboard import SummaryWriter
 from trainer import Trainer
 from buffer import Buffer
 from player import Player
-from models import MuZeroCartNet, MuZeroBipedalNet, MuZeroAtariNet, TestNet
+from models import MuZeroCartNet, MuZeroNECCartNet, MuZeroBipedalNet, MuZeroAtariNet, TestNet
 from memory import GameRecord, Memory
 from reanalyser import Reanalyser
 from envs import testgame_env, testgamed_env, atari_env, cartpole_env, bipedal_env
@@ -26,6 +26,7 @@ from envs import testgame_env, testgamed_env, atari_env, cartpole_env, bipedal_e
 ENV_DICT = {"image": atari_env, "cartpole": cartpole_env, "bipedalwalker": bipedal_env, "test": testgame_env}
 NET_DICT = {
     "cartpole": MuZeroCartNet,
+    "cartpole-nec": MuZeroNECCartNet,
     "bipedalwalker": MuZeroBipedalNet,
     "image": MuZeroAtariNet,
     "test": TestNet,
@@ -46,7 +47,7 @@ def run(config, train_only=False):
 
     print(f"Observation size: {obs_size}")
 
-    muzero_class = NET_DICT[config["obs_type"]]
+    muzero_class = NET_DICT[config["exp_name"]]
     
     if config["obs_type"] == "bipedalwalker":
         muzero_network = muzero_class(config["action_size"], config["action_dim"], obs_size, config)

@@ -262,6 +262,8 @@ class Memory:
     def save_model(self, model, log_dir):
         path = os.path.join(log_dir, "latest_model_dict.pt")
         torch.save(model.state_dict(), path)
+        if self.config["nec"]:
+            model.save_dnd(os.path.join(log_dir, "latest_dnd.pickle"))
 
     def load_model(self, log_dir, model):
         it = time.time()

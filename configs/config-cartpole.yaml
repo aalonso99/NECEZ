@@ -1,6 +1,7 @@
 # Basic params
 env_name: "CartPole-v1"
 obs_type: "cartpole"
+exp_name: "cartpole"
 seed: 0
 obs_size: [4]
 
@@ -18,9 +19,13 @@ max_total_frames: 10_000
 max_frames: 200 # Maximum frames for a single game before it is cut short
 try_cuda: False # Whether to use cuda if available (makes training slower on cartpole)
 
+# NEC and Transfer Learning
+nec: False
+pretrained: False
+weights_path: "pretrained_weights.pt"
 
 # Model params
-latent_size: 15
+latent_size: 16
 support_width: 25
 n_simulations: 30
 

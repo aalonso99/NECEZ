@@ -68,7 +68,7 @@ class Trainer:
                     batch_size=config["batch_size"], device=device
                 )
             self.print_timing("next batch command")
-            val_diff = 0
+            #val_diff = 0
             mu_net.train()
             self.print_timing("to train")
             (
@@ -123,7 +123,7 @@ class Trainer:
                     continue
                 self.print_timing("for init")
 
-                # We must do tthis sequentially, as the input to the dynamics function requires the output
+                # We must do this sequentially, as the input to the dynamics function requires the output
                 # from the previous dynamics function
 
                 target_value_step_i = target_values[:, i]
@@ -172,28 +172,23 @@ class Trainer:
                 # The muzero paper calculates the loss as the squared difference between scalars
                 # but CrossEntropyLoss is used here for a more stable value loss when large values are encountered
 
-                pred_values = support_to_scalar(
-                    torch.softmax(pred_value_logits[screen_t], dim=1)
-                )
+                if self.config["nec"]:
+                    pred_values = pred_value_logits[screen_t] 
+                else:
+                    pred_values = support_to_scalar(
+                        torch.softmax(pred_value_logits[screen_t], dim=1)
+                    )
+                
                 pred_rewards = support_to_scalar(
                     torch.softmax(pred_reward_logits[screen_t], dim=1)
                 )
+                
                 self.print_timing("support to scalar")
                 vvar = torch.var(pred_rewards)
-                # if vvar > 0.01:
-                #     print(vvar, torch.var(target_reward_step_i))
-                # if vvar > 10:
-                #     print(pred_rewards, target_reward_step_i)
-                #     print(i)
-                val_diff += sum(
-                    target_value_step_i[screen_t]
-                    - support_to_scalar(
-                        torch.softmax(pred_value_logits[screen_t], dim=1)
-                    )
-                )
+
                 val_loss = torch.nn.MSELoss()
                 reward_loss = torch.nn.MSELoss()
-                value_loss = val_loss(pred_values, target_value_step_i[screen_t])
+                value_loss = val_loss(torch.squeeze(pred_values), target_value_step_i[screen_t])
 
                 reward_loss = reward_loss(pred_rewards, target_reward_step_i[screen_t])
                 policy_loss = mu_net.policy_loss(
@@ -212,17 +207,7 @@ class Trainer:
                 batch_reward_loss += (reward_loss * weights[screen_t]).mean()
                 batch_consistency_loss += (consistency_loss * weights[screen_t]).mean()
                 latents = new_latents
-                # print(batch_value_loss, batch_consistency_loss)
 
-                # print(
-                #     target_value_stepi,
-                #     pred_value_logits[screen_t],
-                #     torch.softmax(pred_value_logits[screen_t], dim=1),
-                #     support_to_scalar(
-                #         torch.softmax(pred_value_logits[screen_t], dim=1)
-                #     ),
-                #     target_value_sup_i,
-                # )
                 self.print_timing("done losses")
             # Aggregate the losses to a single measure
             batch_loss = (
@@ -233,6 +218,12 @@ class Trainer:
             )
             batch_loss = batch_loss.mean()
             self.print_timing("batch loss")
+            
+            if config["nec"]:
+                # We need the latent representation. When using consistency_loss, this is calculated previously
+                if not config["consistency_loss"]:
+                    target_latents = mu_net.represent(images[:, i]).detach()
+                mu_net.add_to_dnd(target_latents[screen_t], target_value_step_i[screen_t])
 
             if config["debug"]:
                 print(
