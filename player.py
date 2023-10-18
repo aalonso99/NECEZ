@@ -14,7 +14,7 @@ from torch import nn
 
 from torch.utils.tensorboard import SummaryWriter
 
-from memory import GameRecord
+from memory import GameRecord, save_model, load_model
 from models import scalar_to_support, support_to_scalar
 from mcts import search
 
@@ -37,8 +37,10 @@ class Player:
 
             if "latest_model_dict.pt" in os.listdir(log_dir):
                 mu_net = ray.get(memory.load_model.remote(log_dir, mu_net))
+                # mu_net = load_model(log_dir, mu_net, config)
             else:
                 memory.save_model.remote(mu_net, log_dir)
+                # save_model(mu_net, log_dir, config)
 
             frames = 0
             over = False
@@ -83,7 +85,10 @@ class Player:
                         n=config["last_n_frames"], pos=-1
                     )
                 else:
-                    frame_input = frame
+                    if config["exp_name"] == "cartpole-nec":
+                        frame_input = frame[0]
+                    else:
+                        frame_input = frame
                 tree = search(
                     config, mu_net, frame_input, minmax, log_dir, device=device
                 )

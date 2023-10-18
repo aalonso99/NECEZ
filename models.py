@@ -13,6 +13,8 @@ from dnd_kdtree import DND
 
 from itertools import product
 
+import pdb
+
 
 def conv3x3(in_channels, out_channels, stride=1):
     return torch.nn.Conv2d(
@@ -213,6 +215,9 @@ class CartNECPred(nn.Module):
         self.action_size = action_size
         self.latent_size = latent_size
         self.fc1 = nn.Linear(latent_size, latent_size)
+        # TENGO QUE CAMBIAR ESTO PARA USAR LOS PESOS DE LA RED PREENTRENADA
+        # PARECE QUE NO ES CAPAZ DE APRENDER LA FC_POLICY CORRECTAMENTE 
+        # DURENTE EL TRANSFER LEARNING
         self.fc_policy = nn.Linear(latent_size, action_size) # Policy head
         self.fc_value_embedding = nn.Linear(latent_size, latent_size) # First layer of value head
         self.dnd = DND(latent_size, k, max_size, kdtree_rebuild, leaf_size)
@@ -220,17 +225,24 @@ class CartNECPred(nn.Module):
         
     def compute_value(self, latent, neighbors_repr, neighbors_value):
         dists = torch.squeeze(torch.cdist(torch.unsqueeze(latent,1), neighbors_repr))
+
         k = 1.0/(dists+self.delta)
         w = k/k.sum()
         
-        #print("Latent: " + str(latent.shape))
-        #print("Dists: " + str(dists.shape))
-        #print("Neighbors Repr: " + str(neighbors_repr.shape))
+        # print("Weights: ")
+        # print(w)
+        
+        # print("Latent: " + str(latent.shape))
+        # print("Dists: " + str(dists.shape))
+        # print("Neighbors Repr: " + str(neighbors_repr.shape))
         #print("Neighbors Value: " + str(neighbors_value.shape))
-        #print("Weights: " + str(w.shape))
+        # print("Weights: " + str(w.shape))
         #print("Neighbors Weighted Value: " + str((neighbors_value * w).shape))
         
-        return torch.sum(neighbors_value * w, dim=1)
+        value = torch.sum(neighbors_value * w, dim=1)
+        # print("Value shape: "+str(value.shape))
+        
+        return value
 
     def forward(self, latent):
         assert latent.dim() == 2
@@ -240,13 +252,17 @@ class CartNECPred(nn.Module):
         policy_logits = self.fc_policy(out)
         
         if not self.dnd.available:
-        
-            return policy_logits, torch.zeros(latent.shape[0], 1)
+            
+            # print("DND not available")
+            return policy_logits, torch.zeros(latent.shape[0],1)
+            # return policy_logits, torch.normal(0.0,1.0,size=(latent.shape[0],1))
         
         else:
         
             # Computation of the value using neural episodic control https://arxiv.org/pdf/1703.01988.pdf
             out = self.fc_value_embedding(out)
+
+            # print("fc_value_embedding:", list(self.fc_value_embedding.named_parameters()))
             _, knn_indices = self.dnd.query_knn(out.detach().numpy())
             neighbors_repr = []
             neighbors_value = []
@@ -289,7 +305,7 @@ class CartNECPred(nn.Module):
             neighbors_value = torch.tensor(np.array(neighbors_value), requires_grad=False)
 
             value_logits = self.compute_value(out, neighbors_repr, neighbors_value)
-            #print("Value logits: "+str(value_logits))
+            # print("Value logits: "+str(value_logits))
         
         return policy_logits, value_logits
         
@@ -298,10 +314,10 @@ class MuZeroNECCartNet(nn.Module):
 	# If a weights_path is passed, the weights of a pretrained MuZeroCartNet are 
 	# loaded from that path into the compatible layers of this network
     def __init__(self, action_size: int, obs_size, config: dict, 
-    			 k=50,
-                 max_size: int = 50000,
-                 kdtree_rebuild: int = 50,
-                 leaf_size: int = 30,
+    			 k=5,
+                 max_size: int = 1500,
+                 kdtree_rebuild: int = 20,
+                 leaf_size: int = 10,
                  delta: float = 0.001,
                  weights_path: str = None):
                  
@@ -339,15 +355,17 @@ class MuZeroNECCartNet(nn.Module):
         if weights_path != None:
             # Load pretrained weights (only layers present in this model too)
             pretrained_state_dict = torch.load(weights_path)
-            pretrained_dict = {k: v for k, v in pretrained_dict.items() if k in self.state_dict()}
-            self.load_state_dict(pretrained_dict)
+            pretrained_state_dict = {k: v for k, v in pretrained_state_dict.items() if k in self.state_dict()}
+            self.load_state_dict(pretrained_state_dict, strict=False)
+
+            # print(pretrained_state_dict)
             
             # Freeze pretrained layers
-            freeze_weights(self.dyna_net)
-            freeze_weights(self.repr_net)
-            freeze_weights(self.pred_net)
-            unfreeze_weights(self.pred_net.fc_policy)
-            unfreeze_weights(self.pred_net.fc_value_embedding)
+            self.freeze_weights(self.dyna_net)
+            self.freeze_weights(self.repr_net)
+            self.freeze_weights(self.pred_net)
+            self.unfreeze_weights(self.pred_net.fc_policy)
+            self.unfreeze_weights(self.pred_net.fc_value_embedding)
 
         self.policy_loss = nn.CrossEntropyLoss(reduction="none")
         self.reward_loss = nn.CrossEntropyLoss(reduction="none")
@@ -362,14 +380,17 @@ class MuZeroNECCartNet(nn.Module):
         for param in model.parameters():
             param.requires_grad = True
             
-    def add_to_dnd(self, latent, value):
+    def add_to_dnd(self, latent, value, observation=None):
         latent = self.pred_net.fc1(latent)
         latent = torch.relu(latent)
         latent = self.pred_net.fc_value_embedding(latent)
-        self.pred_net.dnd.add(latent.detach().numpy(), value.detach().numpy())
+        self.pred_net.dnd.add(latent.detach().numpy(), value.detach().numpy(), observations=observation)
         
     def save_dnd(self, path):
         self.pred_net.dnd.save(path)
+
+    def load_dnd(self, path):
+        self.pred_net.dnd.load(path)
         
     def consistency_loss(self, x1, x2):
         assert x1.shape == x2.shape

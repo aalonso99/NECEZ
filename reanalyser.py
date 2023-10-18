@@ -7,7 +7,7 @@ import torch
 
 from mcts import search, MinMax
 from utils import convert_to_int, convert_from_int
-
+from memory import load_model
 
 @ray.remote
 class Reanalyser:
@@ -20,6 +20,7 @@ class Reanalyser:
         while not ray.get(memory.is_finished.remote()):
             if "latest_model_dict.pt" in os.listdir(self.log_dir):
                 mu_net = ray.get(memory.load_model.remote(self.log_dir, mu_net))
+                # mu_net = load_model(self.log_dir, mu_net, self.config)
                 mu_net.to(device=self.device)
 
             # No point reanalysing until there are multiple games in the history

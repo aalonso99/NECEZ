@@ -63,7 +63,8 @@ def search(
 
         # Getting probabilities from logits and a scalar value from the categorical support
         init_policy_probs = torch.softmax(init_policy, -1)
-        init_val = support_to_scalar(torch.softmax(init_val, 0))
+        if not config["nec"]:
+            init_val = support_to_scalar(torch.softmax(init_val, 0))
 
         init_policy_probs = add_dirichlet(
             init_policy_probs,
@@ -95,14 +96,9 @@ def search(
         root_node = TreeNode(
             latent=init_latent,
             mu_net=mu_net,
-            # action_size=mu_net.action_size,
-            # action_dim=action_dim,
-            # possible_actions=possible_actions,
-            # possible_action_indices=possible_action_indices,
             val_pred=init_val,
             pol_pred=init_policy_probs,
             minmax=minmax,
-            # config=config,
             num_visits=0,
             lstm_hiddens=init_lstm_hiddens,
         )
@@ -153,6 +149,9 @@ def search(
                             x[0] for x in mu_net.dynamics(latent.unsqueeze(0), action_t)
                         ]
                         new_hiddens = None
+                    # print("Predict: "+str(mu_net.predict(latent.unsqueeze(0))))
+                    # print("Latent shape: "+str(latent.unsqueeze(0).shape))
+                    # print("DND available: "+str(mu_net.pred_net.dnd.available))
                     new_policy, new_val = [
                         x[0] for x in mu_net.predict(latent.unsqueeze(0))
                     ]
@@ -161,7 +160,11 @@ def search(
 
                     # convert logits to scalars and probaility distributions
                     reward = support_to_scalar(torch.softmax(reward, 0))
-                    new_val = support_to_scalar(torch.softmax(new_val, 0))
+                    # print("New val 1: "+ str(new_val))
+                    # Current NEC implementation does not use supported codomain
+                    if not config["nec"]:
+                        new_val = support_to_scalar(torch.softmax(new_val, 0))
+                    # print("New val 2: "+ str(new_val))
                     policy_probs = torch.softmax(new_policy, 0)
                     current_node.insert(
                         action_n=action,
@@ -215,16 +218,11 @@ class TreeNode:
         self,
         latent,
         mu_net,
-        # action_size,
-        # action_dim=1,
-        # possible_actions=None,
-        # possible_action_indices=None,
         val_pred=None,
         pol_pred=None,
         parent=None,
         reward=0,
         minmax=None,
-        # config=None,
         num_visits=1,
         lstm_hiddens=None,
     ):
@@ -234,9 +232,6 @@ class TreeNode:
         self.action_dim = mu_net.action_dim
         self.possible_actions = mu_net.possible_actions
 
-        #self.children = [None] * action_size
-        #self.children = [None] * (action_size ** action_dim)
-        #self.pol_pred = pol_pred
         if self.action_dim > 1:
             self.possible_actions_str = mu_net.possible_actions_str
             self.possible_action_indices = mu_net.possible_action_indices
@@ -288,14 +283,9 @@ class TreeNode:
                 val_pred=val_pred,
                 pol_pred=pol_pred,
                 mu_net=self.mu_net,
-                # action_size=self.action_size,
-                # action_dim=self.action_dim,
-                # possible_actions=self.possible_actions,
-                # possible_action_indices=self.possible_action_indices,
                 parent=self,
                 reward=reward,
                 minmax=minmax,
-                # config=self.config,
                 lstm_hiddens=lstm_hiddens,
             )
 
@@ -362,7 +352,7 @@ class TreeNode:
                 for a in self.possible_actions
             }
 
-        maxscore = max(scores.values()) 
+        maxscore = max(scores.values())
 
         # Need to be careful not to always pick the first action as it common that two are scored identically
         if self.action_dim > 1:

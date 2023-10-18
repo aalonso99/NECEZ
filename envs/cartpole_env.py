@@ -10,14 +10,16 @@ class WrappedEnv(gym.Wrapper):
 
     def reset(self):
         obs = self.env.reset()
+        obs = obs, self.env.render()
         return obs
 
     def step(self, action):
         next_state, reward, terminated, truncated, info = self.env.step(action)
         done = terminated or truncated
+        next_state = next_state, self.env.render()
         return next_state, reward, done, info
 
 
 def make_env(config):
-    env = WrappedEnv(gym.make(config["env_name"]), config)
+    env = WrappedEnv(gym.make(config["env_name"], render_mode="rgb_array"), config)
     return env

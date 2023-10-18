@@ -103,6 +103,9 @@ class Buffer:
         images_a = np.zeros(
             (batch_size, rollout_depth, *self.image_size), dtype=np.float32
         )
+        if self.config["exp_name"]=="cartpole-nec":
+            renders_a = [None] * batch_size 
+
         if self.config["obs_type"] == "bipedalwalker":
             actions_a = np.zeros((batch_size, rollout_depth, self.config["action_dim"]), dtype=np.int64)
             target_policies_a = np.zeros(
@@ -157,6 +160,10 @@ class Buffer:
             else:
                 weight = 1
 
+            if self.config["exp_name"]=="cartpole-nec":
+                renders_a[i] = images[1]
+                images = images[0]
+
             images_a[i] = images
             actions_a[i] = actions
             target_values_a[i] = target_values
@@ -167,7 +174,10 @@ class Buffer:
             depths_a[i] = depth
         self.print_timing("make_lists")
 
-        images_t = torch.tensor(images_a, dtype=torch.float32, device=device)
+        if self.config["exp_name"]=="cartpole-nec":
+            images_t = (torch.tensor(images_a, dtype=torch.float32, device=device), renders_a)
+        else:
+            images_t = torch.tensor(images_a, dtype=torch.float32, device=device)
         actions_t = torch.tensor(actions_a, dtype=torch.int64, device=device)
         target_values_t = torch.tensor(
             target_values_a, dtype=torch.float32, device=device

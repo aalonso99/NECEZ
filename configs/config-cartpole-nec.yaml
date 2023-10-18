@@ -1,7 +1,7 @@
 # Basic params
 env_name: "CartPole-v1"
-obs_type: "cartpole"
-exp_name: "cartpole-nec"
+obs_type: "cartpole"     # type of the environment
+exp_name: "cartpole-nec" # experiment name 
 seed: 0
 obs_size: [4]
 
@@ -14,8 +14,8 @@ train_speed_profiling: False
 get_batch_profiling: False
 render: False
 print_simple: True
-max_games: 800 # Total number of games before training is ended
-max_total_frames: 10_000
+max_games: 80 # Total number of games before training is ended
+max_total_frames: 1_600
 max_frames: 200 # Maximum frames for a single game before it is cut short
 try_cuda: False # Whether to use cuda if available (makes training slower on cartpole)
 
@@ -32,11 +32,15 @@ n_simulations: 30
 # Training params
 initial_learning_rate: 0.02
 final_learning_rate: 0.002
-tr_steps_before_lr_decay: 8_000
+tr_steps_before_lr_decay: 8_00
 weight_decay: 0.0001
 grad_clip: 1 # 0 interpreted as no clipping
 val_weight: 0.25
 policy_weight: 1.0
+#consistency_weight: 2.0
+consistency_weight: 0.5
+reward_weight: 1.0
+
 batch_size: 32
 
 # Search params
@@ -55,12 +59,12 @@ initial_priority_beta: 0.4
 final_priority_beta: 1.0
 
 # Temperature schedule
-temp1: 1_000 # Steps after which temperature is dropped to 0.5
-temp2: 2_000 # Steps after which temperature is dropped to 0.25
-temp3: 3_000 # Steps after which temperature is dropped to 0
+temp1: 1_00 # Steps after which temperature is dropped to 0.5
+temp2: 2_00 # Steps after which temperature is dropped to 0.25
+temp3: 3_00 # Steps after which temperature is dropped to 0
 
 # Reanalyse
-reanalyse: True
+reanalyse: False
 reanalyse_n: 1
 prior_weight: 1
 momentum: 0.9
@@ -74,9 +78,7 @@ lstm_hidden_size: 16
 off_policy_correction: True
 tau: 0.3
 reward_steps: 1000
-total_training_steps: 10_000
+total_training_steps: 1_600
 
 # Consistency loss
 consistency_loss: True
-#consistency_weight: 2.0
-consistency_weight: 0.5

@@ -28,7 +28,13 @@ class GameRecord:
         self.discount = discount  # Discount rate to be applied to future rewards
 
         # List of states received from the game
-        self.observations = [convert_to_int(init_frame, self.config["obs_type"])]
+        if self.config["exp_name"] == "cartpole-nec":
+            self.observations = [(convert_to_int(init_frame[0], 
+                                                self.config["obs_type"]),
+                                 init_frame[1])]
+        else:
+            self.observations = [convert_to_int(init_frame, self.config["obs_type"])]
+
         # List of actions taken in the game
         self.actions = []
         # List of rewards received after taking action in game (single step)
@@ -54,8 +60,12 @@ class GameRecord:
         # We therefore add the first frame when we initialize the class, so connected frame-action-reward
         # tuples have the same index
 
-        int_obs = convert_to_int(obs, self.config["obs_type"])
-        self.observations.append(int_obs)
+        if self.config["exp_name"] == "cartpole-nec":
+            int_obs = convert_to_int(obs[0], self.config["obs_type"])
+            self.observations.append((int_obs, obs[1]))
+        else:
+            int_obs = convert_to_int(obs, self.config["obs_type"])
+            self.observations.append(int_obs)
         self.actions.append(action)
         self.rewards.append(float(reward))
 
@@ -125,6 +135,7 @@ class GameRecord:
                 self.priorities.append(priority)
 
     def pad_target(self, target_l, pad_len):
+        # print(target_l)
         target_a = np.array(target_l)
         pad_l = [(0, pad_len)] + [(0, 0)] * (target_a.ndim - 1)
         target_a = np.pad(target_a, pad_l, mode="constant")
@@ -180,7 +191,8 @@ class GameRecord:
                     else:
                         break
 
-                target_values.append(target_value)
+                # print("Target value:", str(target_value))
+                target_values.append(float(target_value))
 
                 if self.config["action_dim"] > 1:
                     total_searches = sum(self.search_stats[ndx + i][0]) # The visit number is counted for every dimension, hence the [0]
@@ -205,13 +217,20 @@ class GameRecord:
                 ]
             else:
                 images = self.observations[ndx : ndx + actual_rollout_depth]
-                images = [convert_from_int(x, self.config["obs_type"]) for x in images]
+                if self.config["exp_name"] == "cartpole-nec":
+                    images = ( [convert_from_int(x[0], self.config["obs_type"]) for x in images],
+                               [x[1] for x in images] )
+                else:
+                    images = [convert_from_int(x, self.config["obs_type"]) for x in images]
 
             actions = self.actions[ndx : ndx + actual_rollout_depth]
 
             unused_rollout = rollout_depth - actual_rollout_depth
 
-            images_a = self.pad_target(images, unused_rollout)
+            if self.config["exp_name"] == "cartpole-nec":
+                images_a = ( self.pad_target(images[0], unused_rollout), images[1] )
+            else:
+                self.pad_target(images, unused_rollout)
             actions_a = self.pad_target(actions, unused_rollout)
             target_policies_a = self.pad_target(target_policies, unused_rollout)
             target_values_a = self.pad_target(target_values, unused_rollout)
@@ -270,6 +289,8 @@ class Memory:
         path = os.path.join(log_dir, "latest_model_dict.pt")
         if os.path.exists(path):
             model.load_state_dict(torch.load(path, map_location=torch.device("cpu")))
+            if self.config["nec"]:
+                model.load_dnd(os.path.join(log_dir, "latest_dnd.pickle"))
         else:
             print(f"no dict to load at {path}")
 
@@ -324,3 +345,22 @@ class Memory:
 
     def get_elapsed_time(self):
         return time.time() - self.session_start_time
+
+
+def save_model(model, log_dir, config):
+    path = os.path.join(log_dir, "latest_model_dict.pt")
+    torch.save(model.state_dict(), path)
+    if config["nec"]:
+        model.save_dnd(os.path.join(log_dir, "latest_dnd.pickle"))
+
+def load_model(log_dir, model, config):
+    it = time.time()
+    path = os.path.join(log_dir, "latest_model_dict.pt")
+    if os.path.exists(path):
+        model.load_state_dict(torch.load(path, map_location=torch.device("cpu")))
+        if config["nec"]:
+            model.load_dnd(os.path.join(log_dir, "latest_dnd.pickle"))
+    else:
+        print(f"no dict to load at {path}")
+
+    return model

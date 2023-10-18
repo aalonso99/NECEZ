@@ -4,6 +4,9 @@ import numpy as np
 import collections
 import pickle
 
+### TODO: 
+# - The queue must be modified so it allows to upgrade the priority of an element after querying it
+
 class DND(object):
     def __init__(self,
     			 vector_dim,
@@ -31,6 +34,10 @@ class DND(object):
         #	representation is the state observed, stored as a latent vector
         #	q_value is the Q-value associated to such observation
         self.memory_table = {}
+
+        # Data structure with the original observations (not its representation)
+        # Used only for interpretability purposes
+        self.raw_observation_db = {}
         
         # Priority Queue that manages the elements that should be discarded next
         self.priority_queue = collections.deque()
@@ -54,32 +61,16 @@ class DND(object):
 
 
     def save(self, path):
-
         with open(path,'wb') as f:
-            pickle.dump((self.memory_table,self.priority_queue,self.max_size), f)
+            pickle.dump((self.memory_table,self.priority_queue,self.max_size,self.raw_observation_db), f)
 
 
-    def build_from_file(self, path):
+    def load(self, path):
         with open(path,'rb') as f:
-            _memory_table, _priority_queue, _max_size = pickle.load(f)
-
-        self.memory_table = _memory_table
-        self.priority_queue = _priority_queue
-        self.max_size = _max_size
+            self.memory_table, self.priority_queue, self.max_size, self.raw_observation_db = pickle.load(f)
 		
-        keys = []
-        values = []
-		
-        for item in _memory_table.items():
-            keys.append(item[1][0]) # representation
-            values.append(item[1][1]) # q-value
-			
-        self.counter = max(index_indices) + 1
-			
-        keys = np.array(index_indices)
-        values = np.array(index_vectors)
-		
-        self.Q_regressor.fit( keys, values )
+        if len(self.memory_table) > 0:
+            self.rebuild_kdtree()
 
 
     def rebuild_kdtree(self):
@@ -99,8 +90,10 @@ class DND(object):
             self.available = True
             
 
-    def add(self, representations, q_values):
+    def add(self, representations, q_values, observations=None):
         assert len(representations) == len(q_values)
+        if observations:
+            assert len(representations) == len(observations)
         #assert len(representations.shape) == 2
 
         new_ids = np.arange(self.counter, self.counter+len(q_values))
@@ -108,7 +101,11 @@ class DND(object):
         
         for i, r, q in zip(new_ids, representations, q_values):
             self.memory_table[i] = (r, q)
-            self.priority_queue.append(i)
+            self.priority_queue.append(i)   # Adds element to the right of the priority queue
+
+        if observations:
+            for i, o in zip(new_ids, observations):
+                self.raw_observation_db[i] = o
 
         current_memory_size = len(self.memory_table)
         if current_memory_size > self.max_size:
@@ -118,7 +115,11 @@ class DND(object):
                 
             for old_id in old_ids:
                 del self.memory_table[old_id]
-                
+                try:
+                    del self.raw_observation_db[old_id]
+                except Exception as e:
+                    print(e)
+
             # Removing elements from the kdtree is also a reason to rebuild it
             self.kdtree_rebuild_counter += len(old_ids)
         
@@ -128,9 +129,29 @@ class DND(object):
             self.rebuild_kdtree()
         	
 
-    def query_knn(self, representations, k=50):
+    def query_knn(self, representations, k=None):
 
-        dists, indices = self.Q_regressor.kneighbors(representations, n_neighbors=50)
+        if k == None:
+            n_neighbours = self.k
+        else:
+            n_neighbours = k
+
+        # print("Calculando KNN. k={}".format(n_neighbours))
+
+        # Indices returned by the kneighbours method are in the range [0, n_neighbours] and do not 
+        # correspond with our references in the memory
+        dists, indices = self.Q_regressor.kneighbors(representations, n_neighbors=n_neighbours)
+        
+        # Transform the indices into our dictionary keys assuming they are indexed in the 
+        # tree in the same ordered as the data passed to the tree building function
+        indices = np.asarray(list(self.memory_table.keys()))[indices]
+
+        # When an element in the memory is queried its priority is reset so only unused values
+        # are removed when the memory is full
+        for i in indices.flatten():
+            self.priority_queue.remove(i)
+            self.priority_queue.append(i)
+        
         return dists, indices
         
     def query_q_value(self, representations):

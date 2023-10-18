@@ -12,6 +12,7 @@ import torch.nn as nn
 from torch.utils.tensorboard import SummaryWriter
 
 from models import scalar_to_support, support_to_scalar
+from memory import save_model, load_model
 
 
 @ray.remote(max_restarts=-1)
@@ -45,6 +46,7 @@ class Trainer:
         total_batches = ray.get(memory.get_data.remote())["batches"]
         if "latest_model_dict.pt" in os.listdir(log_dir):
             mu_net = ray.get(memory.load_model.remote(log_dir, mu_net))
+            # mu_net = load_model(log_dir, mu_net, self.config)
         mu_net.to(device)
 
         while ray.get(buffer.get_buffer_len.remote()) == 0:
@@ -90,7 +92,11 @@ class Trainer:
             next_batch = buffer.get_batch.remote(batch_size=config["batch_size"])
             self.print_timing("get batch")
 
-            images = images.to(device=device)
+            if self.config["exp_name"] == "cartpole-nec":
+                renders = images[1]
+                images = images[0].to(device=device)
+            else:
+                images = images.to(device=device)
             actions = actions.to(device=device)
             target_rewards = target_rewards.to(device=device)
             target_values = target_values.to(device=device)
@@ -157,7 +163,8 @@ class Trainer:
 
                 # We scale down the gradient, I believe so that the gradient at the base of the unrolled
                 # network converges to a maximum rather than increasing linearly with depth
-                new_latents.register_hook(lambda grad: grad * 0.5)
+                if new_latents.requires_grad: # Cannot register hook when the weights are frozen
+                    new_latents.register_hook(lambda grad: grad * 0.5)
 
                 # target_reward_sup_i = scalar_to_support(
                 #     target_reward_stepi, half_width=config["support_width"]
@@ -212,23 +219,31 @@ class Trainer:
             # Aggregate the losses to a single measure
             batch_loss = (
                 (batch_policy_loss * config["policy_weight"])
-                + batch_reward_loss
+                + (batch_reward_loss * config["reward_weight"])
                 + (batch_value_loss * config["val_weight"])
                 + (batch_consistency_loss * config["consistency_weight"])
             )
             batch_loss = batch_loss.mean()
+            # print("Batch Loss: " + str(batch_loss))
+            # print("Policy Loss: " + str(batch_policy_loss * config["policy_weight"]))
+            # print("Value Loss: " + str(batch_value_loss * config["val_weight"]))
+            # print("Consistency Loss: " + str(batch_consistency_loss * config["consistency_weight"]))
+            # print("Reward Loss: " + str(batch_reward_loss * config["reward_weight"]))
             self.print_timing("batch loss")
             
             if config["nec"]:
                 # We need the latent representation. When using consistency_loss, this is calculated previously
                 if not config["consistency_loss"]:
                     target_latents = mu_net.represent(images[:, i]).detach()
-                mu_net.add_to_dnd(target_latents[screen_t], target_value_step_i[screen_t])
+                mu_net.add_to_dnd(target_latents[screen_t], 
+                                  target_value_step_i[screen_t], 
+                                  observation=[ renders[i] for i in np.where(screen_t)[0] ])
 
-            if config["debug"]:
-                print(
-                    f"v {batch_value_loss}, r {batch_reward_loss}, p {batch_policy_loss}, c {batch_consistency_loss}"
-                )
+            # if config["debug"]:
+            #     print(
+            #         "Training step results:",
+            #         f"v {batch_value_loss}, r {batch_reward_loss}, p {batch_policy_loss}, c {batch_consistency_loss}"
+            #     )
 
             # Zero the gradients in the computation graph and then propagate the loss back through it
             mu_net.optimizer.zero_grad()
@@ -248,7 +263,7 @@ class Trainer:
             metrics_dict = {
                 "Loss/total": total_loss,
                 "Loss/policy": total_policy_loss * config["policy_weight"],
-                "Loss/reward": total_reward_loss,
+                "Loss/reward": total_reward_loss * config["reward_weight"],
                 "Loss/value": (total_value_loss * config["val_weight"]),
                 "Loss/consistency": (
                     total_consistency_loss * config["consistency_weight"]
@@ -258,6 +273,7 @@ class Trainer:
             frames = ray.get(memory.get_data.remote())["frames"]
             if total_batches % 50 == 0:
                 memory.save_model.remote(mu_net.to(device=torch.device("cpu")), log_dir)
+                # save_model(mu_net.to(device=torch.device("cpu")), log_dir, config)
                 mu_net.to(device=device)
             total_batches += 1
 

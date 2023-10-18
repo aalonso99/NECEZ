@@ -4,6 +4,7 @@ import os
 import sys
 import time
 import yaml
+import json
 
 
 import gym
@@ -34,6 +35,9 @@ NET_DICT = {
 
 
 def run(config, train_only=False):
+
+    # Load environment and env parameters
+
     env = ENV_DICT[config["obs_type"]].make_env(config)
     config["full_image_size"] = env.full_image_size
 
@@ -47,17 +51,24 @@ def run(config, train_only=False):
 
     print(f"Observation size: {obs_size}")
 
+    # Load MuZero model
     muzero_class = NET_DICT[config["exp_name"]]
     
     if config["obs_type"] == "bipedalwalker":
         muzero_network = muzero_class(config["action_size"], config["action_dim"], obs_size, config)
     else:
-        muzero_network = muzero_class(config["action_size"], obs_size, config)
         config["action_dim"] = 1
+        if config["exp_name"] == "cartpole-nec":
+            muzero_network = muzero_class(config["action_size"], obs_size, config, weights_path="pretrained_weights.pt")
+        else:
+            muzero_network = muzero_class(config["action_size"], obs_size, config)
 
     muzero_network.init_optim(config["initial_learning_rate"])
 
-    if config["log_name"] == "last":
+
+    # Create log dir
+
+    if config["log_name"] == "last":        
         runs = [x for x in os.listdir(config["log_dir"]) if config["env_name"] in x]
         if runs:
             config["log_name"] = sorted(runs)[-1]
@@ -81,6 +92,8 @@ def run(config, train_only=False):
         yaml.dump(init_dict, open(os.path.join(log_dir, "data.yaml"), "w+"))
 
     tb_writer = SummaryWriter(log_dir=log_dir)
+
+    # Launch workers (players, memory, buffer and trainer)
 
     workers = []
 
