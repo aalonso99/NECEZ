@@ -22,6 +22,7 @@ class DND(object):
         
         # Number of neighbors to use in Q value regression
         self.k = k
+        self.neighbors = None
         
         # Maximum number of elements to be stored in the dictionary
         self.max_size = max_size
@@ -159,6 +160,8 @@ class DND(object):
         for i in indices.flatten():
             self.priority_queue.remove(i)
             self.priority_queue.append(i)
+
+        self.neighbors = indices
         
         return dists, indices
         
