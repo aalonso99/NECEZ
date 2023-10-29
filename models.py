@@ -13,8 +13,6 @@ from dnd_kdtree import DND
 
 from itertools import product
 
-import pdb
-
 
 def conv3x3(in_channels, out_channels, stride=1):
     return torch.nn.Conv2d(
@@ -356,6 +354,8 @@ class MuZeroNECCartNet(nn.Module):
             # Load pretrained weights (only layers present in this model too)
             pretrained_state_dict = torch.load(weights_path)
             pretrained_state_dict = {k: v for k, v in pretrained_state_dict.items() if k in self.state_dict()}
+            for k in pretrained_state_dict.keys():
+                print(k)
             self.load_state_dict(pretrained_state_dict, strict=False)
 
             # print(pretrained_state_dict)
@@ -380,11 +380,12 @@ class MuZeroNECCartNet(nn.Module):
         for param in model.parameters():
             param.requires_grad = True
             
-    def add_to_dnd(self, latent, value, observation=None):
+    def add_to_dnd(self, latent, value, observation=None, memory_object=None):
         latent = self.pred_net.fc1(latent)
         latent = torch.relu(latent)
         latent = self.pred_net.fc_value_embedding(latent)
-        self.pred_net.dnd.add(latent.detach().numpy(), value.detach().numpy(), observations=observation)
+        self.pred_net.dnd.add(latent.detach().numpy(), value.detach().numpy(), 
+                              observations=observation, memory_object=memory_object)
         
     def save_dnd(self, path):
         self.pred_net.dnd.save(path)

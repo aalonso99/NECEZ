@@ -20,6 +20,6 @@ class WrappedEnv(gym.Wrapper):
         return next_state, reward, done, info
 
 
-def make_env(config):
-    env = WrappedEnv(gym.make(config["env_name"], render_mode="rgb_array"), config)
+def make_env(config, render_mode="rgb_array"):
+    env = WrappedEnv(gym.make(config["env_name"], render_mode=render_mode), config)
     return env

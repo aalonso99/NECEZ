@@ -284,6 +284,36 @@ class Memory:
         if self.config["nec"]:
             model.save_dnd(os.path.join(log_dir, "latest_dnd.pickle"))
 
+    def save_observations(self, observations, names, log_dir=None):
+
+        assert len(observations) == len(names), "Unequal number of observations and file names"
+        
+        if not log_dir:
+            log_dir = os.path.join(self.config["log_dir"], self.config["log_name"])
+
+        raw_observations_log_dir = os.path.join(log_dir, "raw_observations")
+
+        if not os.path.isdir(raw_observations_log_dir):
+            os.mkdir(raw_observations_log_dir)
+
+        for obs, name in zip(observations, names):
+            path = os.path.join(raw_observations_log_dir, str(name))
+            with open(path,'wb') as f:
+                pickle.dump(obs, f)
+
+    def delete_observations(self, names, log_dir=None):
+        if not log_dir:
+            log_dir = os.path.join(self.config["log_dir"], self.config["log_name"])
+
+        raw_observations_log_dir = os.path.join(log_dir, "raw_observations")
+
+        if not os.path.isdir(raw_observations_log_dir):
+            os.mkdir(raw_observations_log_dir)
+
+        for name in names:
+            path = os.path.join(raw_observations_log_dir, str(name))
+            os.remove(path)
+
     def load_model(self, log_dir, model):
         it = time.time()
         path = os.path.join(log_dir, "latest_model_dict.pt")

@@ -62,7 +62,6 @@ class Reanalyser:
                         mu_net=mu_net,
                         current_frame=obs,
                         minmax=minmax,
-                        log_dir=self.log_dir,
                         device=torch.device("cpu"),
                     )
                     vals[i] = new_root.average_val

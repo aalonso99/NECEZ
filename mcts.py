@@ -27,7 +27,6 @@ def search(
     mu_net,
     current_frame,
     minmax,
-    log_dir,
     device=torch.device("cpu"),
 ):
     """
@@ -314,13 +313,19 @@ class TreeNode:
 
         n = child.num_visits if child else 0
 
-        q = self.minmax.normalize(child.average_val) if child else 0
+        val = self.minmax.normalize(child.average_val) if child else 0
 
         # p here is the prior - the expectation of what the the policy will look like
         if self.action_dim > 1:
             prior = reduce(mul, [ self.pol_pred[i][int(action_idx_comp)] for i, action_idx_comp in enumerate(action_idx) ]) # Faster equivalent to np.prod()
         elif self.action_dim == 1:
             prior = self.pol_pred[action_n]
+
+        prior = torch.tensor(0.5)
+
+        # print("Action:", action_n)
+        # print("Value:", val)
+        # print("Policy prior:", prior)
 
         # This term increases the prior on those actions which have been taken only a small fraction
         # of the current number of visits to this node
@@ -330,8 +335,8 @@ class TreeNode:
         # Its utility is questionable, because with on the order of 100 simulations, this term will always be
         # close to 1.
         balance_term = c1 + math.log((total_visit_count + c2 + 1) / c2)
-        score = q + (prior * explore_term * balance_term)
-
+        score = val + (prior * explore_term * balance_term)
+        
         return score
 
     def pick_action(self):

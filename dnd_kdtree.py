@@ -14,6 +14,7 @@ class DND(object):
                  max_size = 1000,
                  kdtree_rebuild = 10,
                  leaf_size=30,
+                 memory_object=None,
                  n_jobs=-1):
         
         # Dimension of the latent vectors stored in the memory
@@ -35,9 +36,9 @@ class DND(object):
         #	q_value is the Q-value associated to such observation
         self.memory_table = {}
 
-        # Data structure with the original observations (not its representation)
-        # Used only for interpretability purposes
-        self.raw_observation_db = {}
+        # Object in charge of the operations with memory. It is a object of the Memory class in
+        # memory.py. Used to save/read the raw observations in/from disk.
+        self.memory_object = memory_object
         
         # Priority Queue that manages the elements that should be discarded next
         self.priority_queue = collections.deque()
@@ -62,12 +63,12 @@ class DND(object):
 
     def save(self, path):
         with open(path,'wb') as f:
-            pickle.dump((self.memory_table,self.priority_queue,self.max_size,self.raw_observation_db), f)
+            pickle.dump((self.memory_table,self.priority_queue,self.max_size), f)
 
 
     def load(self, path):
         with open(path,'rb') as f:
-            self.memory_table, self.priority_queue, self.max_size, self.raw_observation_db = pickle.load(f)
+            self.memory_table, self.priority_queue, self.max_size = pickle.load(f)
 		
         if len(self.memory_table) > 0:
             self.rebuild_kdtree()
@@ -90,7 +91,7 @@ class DND(object):
             self.available = True
             
 
-    def add(self, representations, q_values, observations=None):
+    def add(self, representations, q_values, observations=None, memory_object=None):
         assert len(representations) == len(q_values)
         if observations:
             assert len(representations) == len(observations)
@@ -104,8 +105,12 @@ class DND(object):
             self.priority_queue.append(i)   # Adds element to the right of the priority queue
 
         if observations:
-            for i, o in zip(new_ids, observations):
-                self.raw_observation_db[i] = o
+            if memory_object is not None:
+                memory_object.save_observations.remote(observations, new_ids)
+            elif self.memory_object is not None:
+                self.mememory_objectmory.save_observations.remote(observations, new_ids)
+            else:
+                raise Exception("There are observations to save in memory, but no memory object provided to DND")
 
         current_memory_size = len(self.memory_table)
         if current_memory_size > self.max_size:
@@ -115,10 +120,13 @@ class DND(object):
                 
             for old_id in old_ids:
                 del self.memory_table[old_id]
-                try:
-                    del self.raw_observation_db[old_id]
-                except Exception as e:
-                    print(e)
+
+            if memory_object is not None:
+                memory_object.delete_observations.remote(old_ids)
+            elif self.memory_object is not None:
+                self.memory_object.delete_observations.remote(old_ids)
+            else:
+                raise Exception("There are observations to remove from memory, but no memory object provided to DND")
 
             # Removing elements from the kdtree is also a reason to rebuild it
             self.kdtree_rebuild_counter += len(old_ids)

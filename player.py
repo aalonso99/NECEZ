@@ -90,7 +90,7 @@ class Player:
                     else:
                         frame_input = frame
                 tree = search(
-                    config, mu_net, frame_input, minmax, log_dir, device=device
+                    config, mu_net, frame_input, minmax, device=device
                 )
 
                 action = tree.pick_game_action(temperature=temperature)

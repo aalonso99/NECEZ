@@ -237,7 +237,8 @@ class Trainer:
                     target_latents = mu_net.represent(images[:, i]).detach()
                 mu_net.add_to_dnd(target_latents[screen_t], 
                                   target_value_step_i[screen_t], 
-                                  observation=[ renders[i] for i in np.where(screen_t)[0] ])
+                                  observation=[ renders[i] for i in np.where(screen_t)[0] ],
+                                  memory_object=memory)
 
             # if config["debug"]:
             #     print(
