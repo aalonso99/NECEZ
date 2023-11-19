@@ -230,7 +230,7 @@ class GameRecord:
             if self.config["exp_name"] == "cartpole-nec":
                 images_a = ( self.pad_target(images[0], unused_rollout), images[1] )
             else:
-                self.pad_target(images, unused_rollout)
+                images_a = self.pad_target(images, unused_rollout)
             actions_a = self.pad_target(actions, unused_rollout)
             target_policies_a = self.pad_target(target_policies, unused_rollout)
             target_values_a = self.pad_target(target_values, unused_rollout)

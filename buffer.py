@@ -162,9 +162,10 @@ class Buffer:
 
             if self.config["exp_name"]=="cartpole-nec":
                 renders_a[i] = images[1]
-                images = images[0]
+                images_a[i] = images[0]
+            else:
+                images_a[i] = images
 
-            images_a[i] = images
             actions_a[i] = actions
             target_values_a[i] = target_values
             target_rewards_a[i] = target_rewards

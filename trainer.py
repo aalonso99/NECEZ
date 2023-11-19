@@ -12,7 +12,7 @@ import torch.nn as nn
 from torch.utils.tensorboard import SummaryWriter
 
 from models import scalar_to_support, support_to_scalar
-from memory import save_model, load_model
+# from memory import save_model, load_model
 
 
 @ray.remote(max_restarts=-1)
@@ -237,14 +237,14 @@ class Trainer:
                     target_latents = mu_net.represent(images[:, i]).detach()
                 mu_net.add_to_dnd(target_latents[screen_t], 
                                   target_value_step_i[screen_t], 
-                                  observation=[ renders[i] for i in np.where(screen_t)[0] ],
+                                  observation=[ renders[j][i] for j in np.where(screen_t)[0] ],
                                   memory_object=memory)
 
-            # if config["debug"]:
-            #     print(
-            #         "Training step results:",
-            #         f"v {batch_value_loss}, r {batch_reward_loss}, p {batch_policy_loss}, c {batch_consistency_loss}"
-            #     )
+            if config["debug"]:
+                print(
+                    "Training step results:",
+                    f"v {batch_value_loss}, r {batch_reward_loss}, p {batch_policy_loss}, c {batch_consistency_loss}"
+                )
 
             # Zero the gradients in the computation graph and then propagate the loss back through it
             mu_net.optimizer.zero_grad()
@@ -289,6 +289,11 @@ class Trainer:
             if self.config["train_speed_profiling"]:
                 print(f"WHOLE BATCH: {time.time() - st}")
             self.print_timing("saving/end")
+
+        # It is important to do this with NEC, otherwise the last saved DND might not 
+        # correspond to the raw observations saved
+        memory.save_model.remote(mu_net.to(device=torch.device("cpu")), log_dir)
+        mu_net.to(device=device)
 
         return metrics_dict
 

@@ -22,7 +22,6 @@ class DND(object):
         
         # Number of neighbors to use in Q value regression
         self.k = k
-        self.neighbors = None
         
         # Maximum number of elements to be stored in the dictionary
         self.max_size = max_size
@@ -109,7 +108,7 @@ class DND(object):
             if memory_object is not None:
                 memory_object.save_observations.remote(observations, new_ids)
             elif self.memory_object is not None:
-                self.mememory_objectmory.save_observations.remote(observations, new_ids)
+                self.memory_object.save_observations.remote(observations, new_ids)
             else:
                 raise Exception("There are observations to save in memory, but no memory object provided to DND")
 
@@ -138,7 +137,7 @@ class DND(object):
             self.rebuild_kdtree()
         	
 
-    def query_knn(self, representations, k=None):
+    def query_knn(self, representations, k=None, training=True):
 
         if k == None:
             n_neighbours = self.k
@@ -155,14 +154,20 @@ class DND(object):
         # tree in the same ordered as the data passed to the tree building function
         indices = np.asarray(list(self.memory_table.keys()))[indices]
 
+        # print("(Query KNN) Observation latent:")
+        # print(representations)
+
+        # for i in indices.flatten():
+        #     print("(Query KNN) Neighbor {}:".format(i))
+        #     print(self.memory_table[i])
+
         # When an element in the memory is queried its priority is reset so only unused values
         # are removed when the memory is full
-        for i in indices.flatten():
-            self.priority_queue.remove(i)
-            self.priority_queue.append(i)
+        if training:
+            for i in indices.flatten():
+                self.priority_queue.remove(i)
+                self.priority_queue.append(i)
 
-        self.neighbors = indices
-        
         return dists, indices
         
     def query_q_value(self, representations):

@@ -148,9 +148,7 @@ def search(
                             x[0] for x in mu_net.dynamics(latent.unsqueeze(0), action_t)
                         ]
                         new_hiddens = None
-                    # print("Predict: "+str(mu_net.predict(latent.unsqueeze(0))))
-                    # print("Latent shape: "+str(latent.unsqueeze(0).shape))
-                    # print("DND available: "+str(mu_net.pred_net.dnd.available))
+
                     new_policy, new_val = [
                         x[0] for x in mu_net.predict(latent.unsqueeze(0))
                     ]
@@ -159,11 +157,10 @@ def search(
 
                     # convert logits to scalars and probaility distributions
                     reward = support_to_scalar(torch.softmax(reward, 0))
-                    # print("New val 1: "+ str(new_val))
                     # Current NEC implementation does not use supported codomain
                     if not config["nec"]:
                         new_val = support_to_scalar(torch.softmax(new_val, 0))
-                    # print("New val 2: "+ str(new_val))
+
                     policy_probs = torch.softmax(new_policy, 0)
                     current_node.insert(
                         action_n=action,
@@ -321,7 +318,7 @@ class TreeNode:
         elif self.action_dim == 1:
             prior = self.pol_pred[action_n]
 
-        prior = torch.tensor(0.5)
+        # prior = torch.tensor(0.5)
 
         # print("Action:", action_n)
         # print("Value:", val)

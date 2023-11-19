@@ -25,7 +25,7 @@ pretrained: False
 weights_path: "pretrained_weights.pt"
 
 # Model params
-latent_size: 16
+latent_size: 6  # 16
 support_width: 25
 n_simulations: 30
 
@@ -80,4 +80,5 @@ total_training_steps: 10_000
 # Consistency loss
 consistency_loss: True
 #consistency_weight: 2.0
-consistency_weight: 0.5
+#consistency_weight: 0.5
+consistency_weight: 5.0

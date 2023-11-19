@@ -44,7 +44,8 @@ class Player:
 
             frames = 0
             over = False
-            frame = env.reset()
+            # We only use the render when we need to store it in the NEC database
+            frame = env.reset(return_render=config["nec"])  
 
             game_record = GameRecord(
                 config=config,
@@ -105,7 +106,7 @@ class Player:
                 if config["obs_type"] == "bipedalwalker":
                     action = eval(action)
 
-                frame, reward, over, _ = env.step(action)
+                frame, reward, over, _ = env.step(action, return_render=config["nec"])
 
                 game_record.add_step(frame, action, reward, tree)
 

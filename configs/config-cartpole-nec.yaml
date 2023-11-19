@@ -25,7 +25,7 @@ pretrained: True
 weights_path: "pretrained_weights.pt"
 
 # Model params
-latent_size: 16
+latent_size: 6  # 16
 support_width: 25
 n_simulations: 30
 

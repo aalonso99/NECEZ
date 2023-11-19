@@ -8,15 +8,17 @@ class WrappedEnv(gym.Wrapper):
         self.env = env
         self.full_image_size = config["obs_size"]
 
-    def reset(self):
+    def reset(self, return_render=False):
         obs = self.env.reset()
-        obs = obs, self.env.render()
+        if return_render:
+            obs = obs, self.env.render()
         return obs
 
-    def step(self, action):
+    def step(self, action, return_render=False):
         next_state, reward, terminated, truncated, info = self.env.step(action)
         done = terminated or truncated
-        next_state = next_state, self.env.render()
+        if return_render:
+            next_state = next_state, self.env.render()
         return next_state, reward, done, info
 
 
