@@ -1,14 +1,10 @@
 __pycache__
 venv/
-ez_hoagy/
 ezero/
 .git
 .vscode
 runs/
-comps/
 buffers
-testcomp
-testcomp1
-gym-chess/
-colab_comps
-src/aprl
+pretrained_weights*
+demos_old
+demo_model*
