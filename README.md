@@ -1,19 +1,23 @@
+### Description
+Implementation of Neurally Episodically Controlled EfficientZero, a model-based Reinforcement Learning algorithm based on EfficientZero and Neural Episodic Control. This algorithm aims to add interpretability to the model learned by EfficientZero using a parallel database with information about the examples stored in NEC's memory, which are used to evaluate every state observed/simulated by EfficientZero. 
+
 ### Running the repository
 
-The repository contains an implementatino
-I use this github to push changes to a Colab Notebook so may contain temporary changes and bugs.
-
-To test it on, for example, Atari Breakout, set your configuration in configs/config-breakout.yaml and run the following commands in terminal.
+To test it on, for example, Cartpole, set your configuration in configs/config-cartpole.yaml and run the following commands in terminal.
 
 ```
-git clone https://github.com/hoagyc/muz.git
-cd muz
+git clone https://github.com/aalonso99/NECEZ.git
+cd NECEZ
 python -m virtualenv venv
 source venv/bin/activate
 pip install -r requirements.txt
-python main.py breakout
+python main.py cartpole
 ```
 
-The algorithm when run on a CPU is heavily constrained by quantity of training, rather than the amount of game data generated. To exclusively train without generating new runs, set the `train_only` flag to `True` in the appropriate config file.
+This will install the virtual environment with the requirements and train an agent with EfficientZero on the Cartpole. Then, you can set the path with the trained model in configs/config-cartpole-nec.yaml and train a NECEZ agent with transfer learning, using the weights of the previously trained EfficientZero agent.
 
-The settings are optimized for a CPU without any GPU support, but if you add `colab` to the end of the command, as in `python main.py colab`, if will switch to more appropriate settings for a computer with a GPU.
+```
+python main.py cartpole-nec
+```
+
+necez_demo.py implements a simple experiment using a NECEZ agent to simulate, visualize and compute the anomaly score using the NECEZ agent.
