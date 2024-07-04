@@ -6,8 +6,8 @@ Implementation of Neurally Episodically Controlled EfficientZero, a model-based 
 To test it on, for example, Cartpole, set your configuration in configs/config-cartpole.yaml and run the following commands in terminal.
 
 ```
-git clone https://github.com/aalonso99/NECEZ.git
-cd NECEZ
+git clone https://github.com/aalonso99/muz.git
+cd muz
 python -m virtualenv venv
 source venv/bin/activate
 pip install -r requirements.txt
