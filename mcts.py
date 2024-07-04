@@ -105,6 +105,8 @@ def search(
         print_timing("Start search simulations", config)
 
         for i in range(config["n_simulations"]):
+            with open("debug.log", 'a') as logfile:
+                print(f"i:", i, file=logfile)
             # vital to have with(torch.no_grad() or the size of the computation graph quickly becomes gigantic
             current_node = root_node
             new_node = False
@@ -153,6 +155,8 @@ def search(
                         x[0] for x in mu_net.predict(latent.unsqueeze(0))
                     ]
 
+                    # print(new_policy)
+
                     print_timing("Finish running model (search)", config)
 
                     # convert logits to scalars and probaility distributions
@@ -196,9 +200,21 @@ print_timing.last_time = None
 def backpropagate(search_list, value, minmax, discount):
     """Going backward through the visited nodes, we increase the visit count of each by one
     and set the value, discounting the value at the node ahead, but then adding the reward"""
-    for node in search_list[::-1]:
+    inversed_search_list = search_list[::-1]
+    for i, node in enumerate(inversed_search_list):
         node.num_visits += 1
-        value = node.reward + (value * discount)
+        if (not node.config["value_prefix"]) or i==(len(inversed_search_list)-1):
+            reward = node.reward
+        # When using value prefix, node.reward stores the value prefix
+        # In that case we compute the reward by substracting the next
+        # value prefix from the current value prefix
+        else:
+            reward = inversed_search_list[i].reward - inversed_search_list[i+1].reward
+            # reward = node.reward
+
+        reward = node.reward
+
+        value = reward + (value * discount)
         node.update_val(value)
         minmax.update(value)
 
@@ -320,9 +336,10 @@ class TreeNode:
 
         # prior = torch.tensor(0.5)
 
-        # print("Action:", action_n)
-        # print("Value:", val)
-        # print("Policy prior:", prior)
+        # with open("debug.log", 'a') as logfile:
+        #     print("Action:", action_n, file=logfile)
+        #     print("Value:", val, file=logfile)
+        #     print("Policy prior:", prior, file=logfile)
 
         # This term increases the prior on those actions which have been taken only a small fraction
         # of the current number of visits to this node

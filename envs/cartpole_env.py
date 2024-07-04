@@ -16,10 +16,10 @@ class WrappedEnv(gym.Wrapper):
 
     def step(self, action, return_render=False):
         next_state, reward, terminated, truncated, info = self.env.step(action)
-        done = terminated or truncated
+        # done = terminated or truncated
         if return_render:
             next_state = next_state, self.env.render()
-        return next_state, reward, done, info
+        return next_state, reward, terminated, truncated, info
 
 
 def make_env(config, render_mode="rgb_array"):

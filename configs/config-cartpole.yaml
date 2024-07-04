@@ -9,7 +9,7 @@ obs_size: [4]
 log_dir: "runs"
 log_name: "None"
 load_buffer: False
-debug: True
+debug: False
 train_speed_profiling: False
 get_batch_profiling: False
 render: False
@@ -25,7 +25,7 @@ pretrained: False
 weights_path: "pretrained_weights.pt"
 
 # Model params
-latent_size: 6  # 16
+latent_size: 2  # 16
 support_width: 25
 n_simulations: 30
 
@@ -60,6 +60,10 @@ temp1: 1_000 # Steps after which temperature is dropped to 0.5
 temp2: 2_000 # Steps after which temperature is dropped to 0.25
 temp3: 3_000 # Steps after which temperature is dropped to 0
 
+#temp1: 3_000 # Steps after which temperature is dropped to 0.5
+#temp2: 4_500 # Steps after which temperature is dropped to 0.25
+#temp3: 6_000 # Steps after which temperature is dropped to 0
+
 # Reanalyse
 reanalyse: True
 reanalyse_n: 1
@@ -74,11 +78,11 @@ lstm_hidden_size: 16
 # Off policy correction
 off_policy_correction: True
 tau: 0.3
-reward_steps: 1000
 total_training_steps: 10_000
 
 # Consistency loss
 consistency_loss: True
 #consistency_weight: 2.0
+#consistency_weight: 1.0
 #consistency_weight: 0.5
 consistency_weight: 5.0

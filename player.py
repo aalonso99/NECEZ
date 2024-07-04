@@ -106,7 +106,10 @@ class Player:
                 if config["obs_type"] == "bipedalwalker":
                     action = eval(action)
 
-                frame, reward, over, _ = env.step(action, return_render=config["nec"])
+                frame, reward, terminated, truncated, _ = env.step(action, return_render=config["nec"])
+                over = terminated or truncated
+                # if terminated:
+                #     reward = -50
 
                 game_record.add_step(frame, action, reward, tree)
 

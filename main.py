@@ -59,7 +59,7 @@ def run(config, train_only=False):
     else:
         config["action_dim"] = 1
         if config["exp_name"] == "cartpole-nec":
-            muzero_network = muzero_class(config["action_size"], obs_size, config, weights_path="pretrained_weights.pt")
+            muzero_network = muzero_class(config["action_size"], obs_size, config, weights_path=config["weights_path"])
         else:
             muzero_network = muzero_class(config["action_size"], obs_size, config)
 

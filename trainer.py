@@ -237,14 +237,15 @@ class Trainer:
                     target_latents = mu_net.represent(images[:, i]).detach()
                 mu_net.add_to_dnd(target_latents[screen_t], 
                                   target_value_step_i[screen_t], 
-                                  observation=[ renders[j][i] for j in np.where(screen_t)[0] ],
+                                  observation=[ (target_latents[j], renders[j][i]) 
+                                                for j in np.where(screen_t)[0] ],
                                   memory_object=memory)
 
-            if config["debug"]:
-                print(
-                    "Training step results:",
-                    f"v {batch_value_loss}, r {batch_reward_loss}, p {batch_policy_loss}, c {batch_consistency_loss}"
-                )
+            # if config["debug"]:
+            print(
+                "Training step results:",
+                f"v {batch_value_loss}, r {batch_reward_loss}, p {batch_policy_loss}, c {batch_consistency_loss}"
+            )
 
             # Zero the gradients in the computation graph and then propagate the loss back through it
             mu_net.optimizer.zero_grad()

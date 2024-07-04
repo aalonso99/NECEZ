@@ -124,16 +124,16 @@ class CartPred(nn.Module):
         self.latent_size = latent_size
         self.full_width = (support_width * 2) + 1
         self.fc1 = nn.Linear(latent_size, latent_size)
-        self.fc2 = nn.Linear(latent_size, action_size + self.full_width)
+        self.fc_policy = nn.Linear(latent_size, action_size)
+        self.fc_value = nn.Linear(latent_size, self.full_width)
 
     def forward(self, latent):
         assert latent.dim() == 2
         assert latent.shape[1] == self.latent_size
         out = self.fc1(latent)
         out = torch.relu(out)
-        out = self.fc2(out)
-        policy_logits = out[:, : self.action_size]
-        value_logits = out[:, self.action_size :]
+        policy_logits = self.fc_policy(out)
+        value_logits = self.fc_value(out)
         return policy_logits, value_logits
 
 
@@ -354,10 +354,10 @@ class MuZeroNECCartNet(nn.Module):
             param.requires_grad = True
             
     def add_to_dnd(self, latent, value, observation=None, memory_object=None):
-        latent = self.pred_net.fc1(latent)
-        latent = torch.relu(latent)
-        latent = self.pred_net.fc_value_embedding(latent)
-        self.pred_net.dnd.add(latent.detach().numpy(), value.detach().numpy(), 
+        dnd_latent = self.pred_net.fc1(latent)
+        dnd_latent = torch.relu(dnd_latent)
+        dnd_latent = self.pred_net.fc_value_embedding(dnd_latent)
+        self.pred_net.dnd.add(dnd_latent.detach().numpy(), value.detach().numpy(), 
                               observations=observation, memory_object=memory_object)
         
     def save_dnd(self, path):

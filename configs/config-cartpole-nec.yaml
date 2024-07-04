@@ -22,10 +22,12 @@ try_cuda: False # Whether to use cuda if available (makes training slower on car
 # NEC and Transfer Learning
 nec: True
 pretrained: True
-weights_path: "pretrained_weights.pt"
+#weights_path: "pretrained_weights.pt"
+weights_path: "pretrained_weights_5.pt"
+#weights_path: "pretrained_weights_05.pt"
 
 # Model params
-latent_size: 6  # 16
+latent_size: 2  # 16
 support_width: 25
 n_simulations: 30
 
@@ -77,7 +79,6 @@ lstm_hidden_size: 16
 # Off policy correction
 off_policy_correction: True
 tau: 0.3
-reward_steps: 1000
 total_training_steps: 1_600
 
 # Consistency loss

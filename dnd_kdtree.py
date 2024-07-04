@@ -4,9 +4,6 @@ import numpy as np
 import collections
 import pickle
 
-### TODO: 
-# - The queue must be modified so it allows to upgrade the priority of an element after querying it
-
 class DND(object):
     def __init__(self,
     			 vector_dim,
@@ -146,12 +143,13 @@ class DND(object):
 
         # print("Calculando KNN. k={}".format(n_neighbours))
 
-        # Indices returned by the kneighbours method are in the range [0, n_neighbours] and do not 
-        # correspond with our references in the memory
+        # Indices returned by the kneighbours method are in the range [0, self.max_size] and do not 
+        # correspond with our references in the memory table
         dists, indices = self.Q_regressor.kneighbors(representations, n_neighbors=n_neighbours)
         
         # Transform the indices into our dictionary keys assuming they are indexed in the 
-        # tree in the same ordered as the data passed to the tree building function
+        # tree in the same ordered as the data passed to the tree building function,
+        # which is the same as the order in the memory table
         indices = np.asarray(list(self.memory_table.keys()))[indices]
 
         # print("(Query KNN) Observation latent:")
